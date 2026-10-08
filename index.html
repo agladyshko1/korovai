@@ -6,6 +6,9 @@
 <title>Короваї</title>
 <meta name="theme-color" content="#7A1424">
 <meta name="description" content="Облік замовлень, витрат і прибутку на короваях">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kurale&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -411,16 +414,18 @@ function render(){
   $("ttl").textContent=TITLES[S.tab];
   document.querySelectorAll("[data-nav]").forEach(b=>b.dataset.nav===S.tab?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
   let top="";
+  if(S.update) top+=`<div class="alert"><div class="tx"><b>Є нова версія</b>Усі записи збережуться.</div><button id="updB">Оновити</button></div>`;
   if(S.alert) top+=`<div class="alert ${S.alert.kind==="error"?"error":""}" role="alert"><div class="tx"><b>${esc(S.alert.title)}</b>${esc(S.alert.text)}</div><button id="alX">OK</button></div>`;
   if(S.migrated) top+=`<div class="alert"><div class="tx"><b>Рецепти прибрано</b>Склад і кількості видалено. Кожен рецепт став «видом короваю» з однією сумою собівартості.</div><button id="migX">OK</button></div>`;
   const body=S.tab==="orders"?vOrders():S.tab==="buy"?vBuy():S.tab==="money"?vMoney():vMore();
-  $("app").innerHTML=top+body+`<div class="foot">Тестова веб-версія ${APP_VERSION} · ${DB?"дані зберігаються в акаунті":"дані в цьому браузері"}</div>`;
+  $("app").innerHTML=top+body+`<div class="foot">Версія ${APP_VERSION} · ${DB?"дані зберігаються в акаунті":"дані на цьому телефоні · працює без інтернету"}</div>`;
   const fab = S.tab==="orders"?"Замовлення": S.tab==="buy"?(S.buyTab==="other"?"Витрата":S.buyTab==="prices"?"":"Закупка"): "";
   $("fab").hidden=!fab; $("fabT").textContent=fab;
   bind();
 }
 function bind(){
   const A=$("app"), on=(sel,fn)=>A.querySelectorAll(sel).forEach(fn);
+  if($("updB")) $("updB").onclick=()=>S.update&&S.update.postMessage("skipWaiting");
   if($("alX")) $("alX").onclick=()=>{ S.alert=null; render() };
   if($("migX")) $("migX").onclick=()=>{ S.migrated=false; render() };
   on("[data-order]",el=>{ const open=e=>{ if(e.target.closest("[data-done],[data-paid],[data-stop]")) return; orderSheet(el.dataset.order) }; el.onclick=open; el.onkeydown=e=>{ if(e.key==="Enter") open(e) } });
@@ -703,6 +708,16 @@ $("fab").onclick=()=>{ if(S.tab==="buy") return S.buyTab==="other"?expenseSheet(
 window.addEventListener("error",e=>{ try{ showAlert("error","Помилка в застосунку",(e.message||"невідома помилка")+". Зроби скріншот і надішли Андрію.") }catch(_){} });
 $("app").innerHTML='<div class="empty">Завантажую…</div>';
 (async()=>{ await load(); try{ DL=window.claude&&window.claude.use?await window.claude.use("downloads"):null }catch(e){} render() })();
+try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist() }catch(e){}
+if("serviceWorker" in navigator && location.protocol==="https:" && !(window.claude&&window.claude.use)){
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    const offer=w=>{ S.update=w; render() };
+    if(reg.waiting&&navigator.serviceWorker.controller) offer(reg.waiting);
+    reg.addEventListener("updatefound",()=>{ const w=reg.installing; w&&w.addEventListener("statechange",()=>{ if(w.state==="installed"&&navigator.serviceWorker.controller) offer(w) }) });
+    let re=false; navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(!re){ re=true; location.reload() } });
+    setInterval(()=>reg.update().catch(()=>{}),3600000);
+  }).catch(()=>{});
+}
 })();
 </script>
 </body>
