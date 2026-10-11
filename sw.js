@@ -1,5 +1,5 @@
 // Щоб випустити оновлення: зміни номер версії нижче і завантаж файли заново.
-const VERSION = "2.0";
+const VERSION = "3.0";
 const CACHE = "korovai-" + VERSION;
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 

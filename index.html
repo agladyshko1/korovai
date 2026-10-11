@@ -173,6 +173,26 @@ textarea.inp{min-height:84px;resize:vertical}
 .dialog .btns button{border-radius:14px;padding:14px;font-weight:600;font-size:1rem}
 .dialog .no{border:1.5px solid var(--line);background:transparent}
 .dialog .yes{border:0;background:var(--red);color:#fff}
+.qform{background:var(--panel);border-radius:18px;padding:14px;margin-bottom:12px}
+.qlabel{display:block;font-family:"Kurale",Georgia,serif;font-size:1.25rem;margin-bottom:8px}
+.qrow{display:flex;gap:8px}
+.qrow .inp{flex:1;min-width:0;font-size:1.1rem;border-width:2px;border-color:var(--gold)}
+.qchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.qchips button{border:1.5px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:.92rem}
+.result{border:2px solid var(--green);background:var(--greenSoft);border-radius:16px;padding:12px 14px;margin-bottom:12px}
+.rhead{font-weight:700;color:var(--green);margin-bottom:4px}
+.rline{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid color-mix(in srgb,var(--green) 20%,transparent)}
+.rline:first-of-type{border-top:0}
+.rline .main{flex:1;min-width:0}
+.rline .main small{display:block;color:var(--muted)}
+.rbad{margin-top:8px;padding:10px;border-radius:12px;background:var(--goldSoft)}
+.result:has(.rbad):not(:has(.rline)){border-color:var(--gold);background:var(--goldSoft)}
+.ractions{display:flex;gap:18px;justify-content:flex-end;margin-top:6px}
+.ic2{font-size:1.3rem;flex:0 0 auto;width:28px;text-align:center}
+.pos{color:var(--green)}
+.payform{background:var(--panel);border-radius:14px;padding:12px;margin-top:10px}
+code{font-family:inherit;background:var(--goldSoft);padding:1px 6px;border-radius:6px}
+.seg button{font-size:.88rem;padding:10px 4px}
 .foot{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
 .linkbtn{border:0;background:none;color:var(--red);font-weight:600;padding:0}
 .steps{counter-reset:s;list-style:none;padding:0;margin:0}
@@ -183,32 +203,191 @@ textarea.inp{min-height:84px;resize:vertical}
 </style>
 </head>
 <body>
-<header class="top"><div class="bar"><h1 id="ttl">Замовлення</h1></div><div class="rushnyk" aria-hidden="true"></div></header>
+<header class="top"><div class="bar"><h1>Короваї</h1></div><div class="rushnyk" aria-hidden="true"></div></header>
 <main id="app"></main>
-<button class="fab" id="fab"><span aria-hidden="true" style="font-size:1.4rem;line-height:1">+</span> <span id="fabT">Замовлення</span></button>
-<nav class="bottom" aria-label="Розділи"><div class="in">
-  <button data-nav="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Замовлення</button>
-  <button data-nav="buy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.2 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/></svg>Закупки</button>
-  <button data-nav="money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Гроші</button>
-  <button data-nav="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="13" rx="9" ry="6"/><path d="M5 11c2 1.5 4.5 2.2 7 2.2S17 12.5 19 11M9 9.2l1.5 1.8M14 9l-1.2 2M12 7v2"/></svg>Довідник</button>
-</div></nav>
 <div id="sheet"></div>
 <div id="toast" class="toastwrap" aria-live="polite"></div>
 <div id="modal"></div>
-
 <script>
 (function(){
 "use strict";
-const APP_VERSION="2.0";
+const APP_VERSION="3.0";
+const KEY="kv3:data", META="kv3:meta";
+const pad=n=>String(n).padStart(2,"0");
+const LET="a-zа-яіїєґёыэъ'";
+const LOOK={a:"а",e:"е",o:"о",p:"р",c:"с",x:"х",y:"у",k:"к",m:"м",t:"т",h:"н",b:"в"};
+const normT = s => (" "+s+" ").toLowerCase().replace(/[’ʼ`´‘]/g,"'").replace(/i/g,"і")
+  .replace(/[^\s\d.,:;+\-*()]+/g, w => /[а-яіїєґ]/.test(w) ? w.replace(/[aeopcxykmthb]/g,ch=>LOOK[ch]) : w)
+  .replace(/\s+/g," ");
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\&]/g,"\\$&");
+function kwRe(k){ let end=false; k=normT(k).trim(); if(k.endsWith("$")){ end=true; k=k.slice(0,-1) } return new RegExp("(^|[^"+LET+"])"+reEsc(k)+(end?"(?=[^"+LET+"]|$)":""),"i"); }
+
+const MONTH_STEMS=[["січ",1],["лют",2],["берез",3],["квіт",4],["трав",5],["черв",6],["лип",7],["серп",8],["верес",9],["жовт",10],["листоп",11],["груд",12]];
+const WDAY=[["понеділ",1],["пн",1],["вівтор",2],["вт",2],["серед",3],["ср",3],["четвер",4],["чт",4],["п'ятниц",5],["пятниц",5],["пт",5],["субот",6],["сб",6],["неділ",0],["нд",0]];
+const isoD = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const dOf = iso => new Date(iso+"T12:00:00");
+function mkDate(dd,mm,yy,today){
+  const t=dOf(today);
+  let y = yy ? (yy<100?2000+yy:yy) : t.getFullYear();
+  const d=new Date(y,mm-1,dd,12);
+  if(d.getMonth()!==mm-1 || d.getDate()!==dd) return null;
+  if(!yy && (d - t) > 31*864e5){ d.setFullYear(y-1); }
+  return isoD(d);
+}
+
+const B = "(?:^|(?<=[^"+LET+"\\d]))";      // word start
+const E = "(?=[^"+LET+"]|$)";              // word end
+const RX = {
+  rel: new RegExp(B+"(позавчора|позавчера|вчора|вчера|сьогодні|сегодня)"+E,"i"),
+  wd: new RegExp(B+"(?:(?:в|у|во)\\s+)?(понеділ["+LET+"]*|вівтор["+LET+"]*|серед[уа]|четвер["+LET+"]*|п'?ятниц["+LET+"]*|субот["+LET+"]*|неділ["+LET+"]*|пн|вт|ср|чт|пт|сб|нд)"+E,"i"),
+  dmon: new RegExp("(?:^|(?<=[^\\d.,]))(\\d{1,2})\\s*(січ|лют|берез|квіт|трав|черв|лип|серп|верес|жовт|листоп|груд)["+LET+"]*\\.?"+E,"i"),
+  numStart: /^\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*:?(?=\s|$)/,
+  numYear: /(?:^|(?<=\s))(\d{1,2})[./](\d{1,2})[./](\d{2,4})(?=\s|:|$)/,
+  numColon: /(?:^|(?<=\s))(\d{1,2})[./](\d{1,2})\s*:/,
+  numEnd: /(?:^|(?<=\s))(\d{1,2})[./](\d{1,2})\s*$/
+};
+function extractDate(w,today){
+  let m, date=null;
+  const cut = (mm)=>{ w = (w.slice(0,mm.index)+" "+w.slice(mm.index+mm[0].length)); };
+  if((m=w.match(RX.rel))){
+    const k=m[1].toLowerCase(); const d=dOf(today);
+    if(k.startsWith("поза")) d.setDate(d.getDate()-2); else if(k.startsWith("вчор")||k.startsWith("вчер")) d.setDate(d.getDate()-1);
+    date=isoD(d); cut(m);
+  } else if((m=w.match(RX.wd))){
+    const k=normT(m[1]).trim().replace(/^п'?ят/,"п'ят");
+    const target=(WDAY.find(([s])=>k.startsWith(normT(s).trim()))||[0,null])[1];
+    if(target!==null){ const d=dOf(today); let back=(d.getDay()-target+7)%7; d.setDate(d.getDate()-back); date=isoD(d); cut(m); }
+  } else if((m=w.match(RX.dmon))){
+    const mon=(MONTH_STEMS.find(([s])=>m[2].toLowerCase().startsWith(s))||[0,0])[1];
+    const r=mkDate(+m[1],mon,0,today); if(r){ date=r; cut(m); }
+  } else {
+    for(const key of ["numYear","numColon","numStart"]){
+      m=w.match(RX[key]);
+      if(m){ const r=mkDate(+m[1],+m[2],m[3]?+m[3]:0,today); if(r){ date=r; cut(m); break } }
+    }
+    if(!date && (m=w.match(RX.numEnd))){
+      const rest=w.slice(0,m.index);
+      if(/\d/.test(rest)){ const r=mkDate(+m[1],+m[2],0,today); if(r){ date=r; cut(m); } }
+    }
+  }
+  return {w,date};
+}
+
+const TERM="\\d+(?:[.,]\\d+)?(?:\\s*(?:к|k|тис\\.?)(?![" + LET + "]))?";
+const OP="(?:\\s*[*×хx]\\s*(?=\\d)|[+\\-]\\s*(?=\\d)|\\s+[+\\-]\\s+(?=\\d)|\\s+(?=\\d))";
+const EXPR_RE=()=>new RegExp("([+\\-])?\\s*("+TERM+"(?:"+OP+TERM+")*)","gi");
+
+function evalExpr(expr){
+  const toks=expr.match(/\d+(?:[.,]\d+)?(?:\s*(?:к|k|тис\.?)(?![а-яіїєґa-z]))?|[+\-*×хx]/gi)||[];
+  let total=0, term=null, sign=1, pendingMul=false, lastNum=false;
+  const num=s=>{ const mm=s.match(/^(\d+(?:[.,]\d+)?)\s*(к|k|тис\.?)?$/i); return Number(mm[1].replace(",","."))*(mm[2]?1000:1) };
+  for(const t of toks){
+    if(/^\d/.test(t)){
+      const v=num(t);
+      if(term===null) term=v;
+      else if(pendingMul) term*=v;
+      else { total+=sign*term; sign=1; term=v; }  // bare space between numbers = add
+      pendingMul=false; lastNum=true;
+    } else if(/[*×хx]/i.test(t)){ pendingMul=true; lastNum=false; }
+    else { if(term!==null){ total+=sign*term; term=null } sign = t==="-"?-1:1; pendingMul=false; lastNum=false; }
+  }
+  if(term!==null) total+=sign*term;
+  return Math.round(total*100)/100;
+}
+
+
+/* ---------- korovai quick parser ---------- */
+const NUM="\\d+(?:[.,]\\d+)?";
+const LT="а-яіїєґa-z'";
+const PRODUCTS=[["Борошно",["борошн","мук","муки"]],["Яйця",["яйц","яєць","яйко"]],["Цукор",["цукор","цукру"]],["Масло",["масл","маргарин","спред"]],["Молоко",["молок"]],["Сметана",["сметан"]],["Вершки",["вершк"]],["Дріжджі",["дріжд","дрожж"]],["Сіль",["сіль$","солі$"]],["Олія",["олі","олію"]],["Ванілін",["ваніл"]],["Мак",["мак$","маку$"]],["Родзинки",["родзин","ізюм"]],["Горіхи",["горіх"]],["Мед",["мед$","меду$"]],["Кефір",["кефір"]],["Сир",["сир$","сиру$"]],["Крохмаль",["крохмал"]],["Мастика",["мастик"]],["Барвники",["барвник"]]];
+const SHOPS=["атб","сільпо","сильпо","novus","новус","metro","метро","ашан","auchan","варус","фора","копійк","ринок","базар","маркет","магазин","супермаркет","епіцентр"];
+const EXPC=[["Газ",["газ$","газу$"]],["Світло",["світл","електр"]],["Упаковка",["коробк","упаков","пакет","плівк","стрічк","пергамент"]],["Прикраси",["прикрас","декор","калин","барвін","колоск","фігурк","лебед","квіт","рушник"]],["Форми й інструменти",["форм","деко$","міксер","інструмент","духовк","піч$"]],["Доставка",["доставк","таксі","бензин","пальн","проїзд","маршрут"]],["Реклама",["реклам","листівк","візитк","інстаграм","таргет"]]];
+const EXP_CATS=["Газ","Світло","Упаковка","Прикраси","Форми й інструменти","Доставка","Реклама","Інше"];
+const SALE_WORDS=["продал","продаж","оплат","доплат","замовниц","замовник","клієнт","виручк"];
+const BUY_WORDS=["купил","закуп","купівл","чек$"];
+const rx=list=>list.map(kwRe);
+const PROD_RX=PRODUCTS.map(([n,k])=>[n,rx(k)]), SHOP_RX=rx(SHOPS), EXP_RX=EXPC.map(([n,k])=>[n,rx(k)]), SALE_RX=rx(SALE_WORDS), BUY_RX=rx(BUY_WORDS);
+const hit=(t,list)=>list.some(r=>r.test(t));
+const findPair=(t,pairs)=>{ for(const [n,rs] of pairs) if(rs.some(r=>r.test(t))) return n; return null };
+function kindPairs(kinds){
+  // specific kinds first, generic "коровай" word last
+  const own=kinds.map(k=>[k.id,rx([k.name.toLowerCase(),...(k.kw||[])].filter(Boolean))]);
+  return own;
+}
+const UNIT_MAP=u=>{ u=u.toLowerCase(); if(/^кг|^кіло/.test(u)) return ["г",1000]; if(/^гр|^грам|^г$/.test(u)) return ["г",1]; if(/^л$|^літр/.test(u)) return ["мл",1000]; if(/^мл/.test(u)) return ["мл",1]; if(/^дес/.test(u)) return ["шт",10]; return ["шт",1] };
+const toN=s=>Number(String(s).replace(",","."));
+
+function parseLine(str, today, kinds){
+  const out=[], bad=[]; let cur=null;
+  const KP=kindPairs(kinds||[]);
+  const chunks=str.split(/[;\n]+|,(?!\d)/).map(x=>x.trim()).filter(Boolean);
+  for(const chunk of chunks){
+    let w=" "+chunk.replace(/[’ʼ`´‘]/g,"'")+" ";
+    w=w.replace(/(грн\.?|гривень|гривні|гривня|₴|uah)/gi," ");
+    w=w.replace(/([a-zа-яіїєґ'])(\d)/gi,"$1 $2");
+    const dt=extractDate(w,today); w=dt.w; if(dt.date) cur=dt.date;
+    let m;
+    if(!dt.date && (m=w.match(/(^|\s)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?=\s|:|$)/))){ const r=mkDate(+m[2],+m[3],m[4]?+m[4]:0,today); if(r){ cur=r; dt.date=r; w=w.replace(m[0]," ") } }
+    const date=cur||today;
+    const isOrder=/(^|\s)замовл/i.test(w);
+    let prepay=0;
+    if((m=w.match(new RegExp("перед(?:оплат["+LT+"]*|пл\\.?|\\.)?\\s*("+NUM+")\\s*(к|тис)?(?!["+LT+"])","i")))){ prepay=toN(m[1])*(m[2]?1000:1); w=w.replace(m[0]," ") }
+    let hours=0;
+    if((m=w.match(new RegExp("("+NUM+")\\s*(?:год["+LT+"]*|h)(?!["+LT+"])","i")))){ hours=toN(m[1]); w=w.replace(m[0]," ") }
+    let qty=0, unit="";
+    if((m=w.match(new RegExp("("+NUM+")\\s*(кг|кіло["+LT+"]*|гр|грам["+LT+"]*|г|л|літр["+LT+"]*|мл|шт|штук["+LT+"]*|дес["+LT+"]*)(?!["+LT+"])","i")))){ const [u,mul]=UNIT_MAP(m[2]); qty=toN(m[1])*mul; unit=u; w=w.replace(m[0]," ") }
+    let kq=0;
+    if((m=w.match(/(^|\s)(\d{1,2})\s*(?=коров|шиш|калач|дивн|паляниц|пиріж)/i))){ kq=Number(m[2]); w=w.replace(m[0],m[1]+" ") }
+    // amount: first expression (900+900, 2*900, 1,5к)
+    let amount=0;
+    const ex=w.match(new RegExp("(^|\\s)([+\\-])?\\s*("+TERM+"(?:\\s*[+*×хx]\\s*"+TERM+")*)(?!["+LT+"])","i"));
+    let sign="";
+    if(ex){ sign=ex[2]||""; amount=evalExpr(ex[3]); w=w.replace(ex[0]," ") }
+    const words=w.replace(/\s+/g," ").trim();
+    const t=normT(words);
+    const kindId=findPair(t,KP), prod=findPair(t,PROD_RX), expc=findPair(t,EXP_RX);
+    let type;
+    if(isOrder) type="order";
+    else if(sign==="+") type="sale";
+    else if(sign==="-") type=prod||hit(t,SHOP_RX)?"buy":"exp";
+    else if(kindId||hit(t,SALE_RX)) type="sale";
+    else if(prod||hit(t,SHOP_RX)||hit(t,BUY_RX)||qty) type="buy";
+    else if(expc) type="exp";
+    else type= amount? "exp" : null;
+    if((type==="sale"||type==="order") && unit==="шт" && qty && !kq){ kq=Math.round(qty); qty=0; unit="" }
+    const k=kindId?kinds.find(x=>x.id===kindId):null;
+    if(!amount && (type==="sale"||type==="order") && k && k.price) amount=k.price*(kq||1);
+    if(!type || !(amount>0)){ if(!dt.date || words) bad.push(chunk); continue }
+    if(amount>5e6){ bad.push(chunk); continue }
+    // client: capitalised words that aren't dictionary words
+    let client="";
+    if(type==="sale"||type==="order"){
+      const toks=chunk.replace(/[,.:;()]/g," ").split(/\s+/).filter(Boolean);
+      const names=toks.filter(x=>/^[А-ЯІЇЄҐA-Z][а-яіїєґa-z'’\-]+$/.test(x) && !findPair(normT(x),KP) && !hit(normT(x),SALE_RX) && !/^(Замовл|Вчора|Сьогодні|Перед|Коров)/i.test(x));
+      client=names.slice(0,2).join(" ");
+    }
+    let note=words;
+    if(client) note=note.replace(new RegExp(client.split(" ").map(reEsc).join("\\s+"),"i")," ");
+    note=note.replace(/(^|\s)(замовлення|замовила|замовив|продала|продав|купила|купив)(?=\s|$)/gi," ");
+    if(type==="sale"||type==="order") note=note.split(/\s+/).filter(x=>x && !findPair(normT(x),KP) && !hit(normT(x),SALE_RX)).join(" ");
+    note=note.replace(/\s+/g," ").trim();
+    const rec={type,amount:Math.round(amount*100)/100,date,note:note.slice(0,80)};
+    if(type==="sale"||type==="order"){ rec.kindId=kindId||""; rec.qty=kindId?(kq||1):0; rec.client=client; rec.hours=hours; if(type==="order") rec.prepay=prepay }
+    if(type==="buy"){ rec.product=prod||""; rec.qty=qty; rec.unit=unit; if(prod && normT(note).trim()===normT(prod).trim()) rec.note="" }
+    if(type==="exp"){ rec.cat=expc||"Інше"; if(expc && normT(note).trim()===normT(expc).trim()) rec.note="" }
+    out.push(rec);
+  }
+  return {out,bad};
+}
+
+
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
-const pad=n=>String(n).padStart(2,"0");
-const isoD=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const today=()=>isoD(new Date());
-const dOf=iso=>new Date(iso+"T12:00:00");
 const monthOf=iso=>String(iso||"").slice(0,7);
+const daysIn=k=>{ const [y,m]=k.split("-").map(Number); return new Date(y,m,0).getDate() };
 const shiftMonth=(k,d)=>{ let [y,m]=k.split("-").map(Number); m+=d; while(m>12){m-=12;y++} while(m<1){m+=12;y--} return y+"-"+pad(m) };
-const fmt=n=>{ const r=Math.round((Number(n)||0)*100)/100; const s=(Number.isInteger(r)?String(r):r.toFixed(2)).split("."); return s[0].replace(/\B(?=(\d{3})+(?!\d))/g," ")+(s[1]?","+s[1]:"") };
+const fmt=n=>{ const r=Math.round((Number(n)||0)*100)/100; const s=(Number.isInteger(r)?String(Math.abs(r)):Math.abs(r).toFixed(2)).split("."); return (r<0?"−":"")+s[0].replace(/\B(?=(\d{3})+(?!\d))/g," ")+(s[1]?","+s[1]:"") };
 const fmtM=n=>fmt(Math.round(Number(n)||0))+" ₴";
 const fmtH=h=>{ h=Number(h)||0; const hh=Math.floor(h), mm=Math.round((h-hh)*60); return hh+" год"+(mm?" "+mm+" хв":"") };
 const num=v=>{ const x=Number(String(v==null?"":v).replace(/\s/g,"").replace(",",".")); return isFinite(x)?x:0 };
@@ -216,245 +395,197 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const MONTHS=["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
 const MG=["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"];
-const WD=["нд","пн","вт","ср","чт","пт","сб"];
+const MIN=["січні","лютому","березні","квітні","травні","червні","липні","серпні","вересні","жовтні","листопаді","грудні"];
+const WD=["неділя","понеділок","вівторок","середа","четвер","п'ятниця","субота"];
 const dayLabel=iso=>{ const t=today(); if(iso===t) return "Сьогодні"; const diff=Math.round((dOf(iso)-dOf(t))/864e5); if(diff===1) return "Завтра"; if(diff===-1) return "Вчора"; const d=dOf(iso); return d.getDate()+" "+MG[d.getMonth()] };
-const shortDate=iso=>{ const d=dOf(iso); return d.getDate()+" "+MG[d.getMonth()] };
-const EXP_CATS=["Упаковка, коробки","Прикраси","Газ","Світло","Форми, інструменти","Доставка, таксі","Реклама","Інше"];
+const qtyText=(q,u)=>{ if(!q) return ""; if(u==="г") return q>=1000? fmt(q/1000)+" кг" : fmt(q)+" г"; if(u==="мл") return q>=1000? fmt(q/1000)+" л" : fmt(q)+" мл"; return fmt(q)+" шт" };
+const perUnit=(e)=>{ if(!e.qty||!e.unit) return ""; const k=e.unit==="шт"?1:1000; return fmt(Math.round(e.amount/e.qty*k*100)/100)+" ₴/"+(e.unit==="г"?"кг":e.unit==="мл"?"л":"шт") };
 
-/* ---------- data & storage ---------- */
-const COLS=["products","kinds","clients","orders","purchases","expenses"];
-const DEFAULT_PRODUCTS=[["Борошно","г"],["Яйця","шт"],["Цукор","г"],["Вершкове масло","г"],["Молоко","мл"],["Дріжджі","г"],["Сіль","г"],["Олія","мл"],["Ванільний цукор","г"],["Мак","г"]];
-let D={}, DB=null, BASE="", lastSaved={}, metaObj={}, DL=null;
-function blank(){ return {products:DEFAULT_PRODUCTS.map(([name,unit])=>({id:newId(),name,unit,packSize:unit==="шт"?10:1000,packPrice:0,priceDate:""})),kinds:[],clients:[],orders:[],purchases:[],expenses:[]} }
-function normalize(){ COLS.forEach(k=>{ if(!Array.isArray(D[k])) D[k]=[] }) }
-async function getDoc(k){ try{ const s=await DB.doc(BASE+"/kv-"+k).get(); return s&&s.exists? JSON.parse(JSON.stringify(s.data())) : null }catch(e){ return null } }
-async function load(){
-  try{ if(window.claude&&window.claude.use){ const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]); const uid=user?await user.id():null; if(db&&uid){ DB=db; BASE="data/users/"+uid } } }catch(e){}
-  if(DB){
-    const docs={}; await Promise.all(COLS.concat(["meta","recipes"]).map(async k=>{ docs[k]=await getDoc(k) }));
-    const fresh=COLS.every(k=>!docs[k]);
-    D=fresh?blank():{}; COLS.forEach(k=>{ if(docs[k]) D[k]=docs[k].items||[] }); normalize();
-    metaObj=docs.meta||{};
-    COLS.forEach(k=>{ lastSaved[k]= docs[k]? JSON.stringify(D[k]) : "" });
-    migrate(docs.recipes&&docs.recipes.items);
-    save();
-  } else {
-    try{ const r=localStorage.getItem("kv2:data"); D=r?JSON.parse(r):blank() }catch(e){ D=blank() }
-    normalize();
-  }
+/* ---------- data ---------- */
+let D={kinds:[],entries:[],orders:[]};
+const S={tab:"month", month:monthOf(today())};
+function blank(){ return {kinds:[{id:newId(),name:"Коровай",price:0,kw:["коров"]}],entries:[],orders:[]} }
+function load(){
+  let d=null; try{ d=JSON.parse(localStorage.getItem(KEY)||"null") }catch(e){}
+  if(!d){ d=blank(); const old=(()=>{ try{ return JSON.parse(localStorage.getItem("kv2:data")||"null") }catch(e){ return null } })(); if(old) migrate(old,d) }
+  ["kinds","entries","orders"].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=[] });
+  if(!d.kinds.length) d.kinds=blank().kinds;
+  D=d; save(true);
 }
-// v1 → v2: recipes become "kinds" with a single cost number; ingredient quantities are dropped.
-function migrate(recipes){
-  if(!recipes || !recipes.length || D.kinds.length) return;
-  recipes.forEach(r=>{
-    let cost=0; (r.items||[]).forEach(it=>{ const p=D.products.find(x=>x.id===it.productId); if(p&&p.packSize>0) cost+=(p.packPrice/p.packSize)*(Number(it.qty)||0) });
-    D.kinds.push({id:r.id,name:r.name,price:Number(r.price)||0,cost:Math.round(cost),extra:Number(r.extra)||0,hours:Number(r.hours)||0});
-  });
-  D.orders.forEach(o=>{ if(o.recipeId && !o.kindId){ o.kindId=o.recipeId; delete o.recipeId } });
-  if(DB) DB.doc(BASE+"/kv-recipes").delete().catch(()=>{});
-  S.migrated=true;
+function migrate(o,d){
+  const kinds=(o.kinds||[]).map(k=>({id:k.id,name:k.name,price:Number(k.price)||0,kw:[]}));
+  if(kinds.length) d.kinds=kinds.concat(d.kinds.filter(x=>!kinds.some(k=>k.name.toLowerCase()===x.name.toLowerCase())));
+  const prod=id=>(o.products||[]).find(p=>p.id===id), cli=id=>(o.clients||[]).find(c=>c.id===id);
+  (o.purchases||[]).forEach(p=>{ const pr=prod(p.productId); d.entries.push({id:newId(),type:"buy",amount:p.amount,date:p.date,product:pr?pr.name:"",qty:p.qty||0,unit:pr?pr.unit:"",note:p.name&&!pr?p.name:(p.note||""),ts:p.ts||Date.now()}) });
+  (o.expenses||[]).forEach(e=>{ const map={"Упаковка, коробки":"Упаковка","Форми, інструменти":"Форми й інструменти","Доставка, таксі":"Доставка"}; const c=map[e.cat]||e.cat; d.entries.push({id:newId(),type:"exp",amount:e.amount,date:e.date,cat:EXP_CATS.includes(c)?c:"Інше",note:e.note||(EXP_CATS.includes(c)?"":e.cat),ts:Date.now()}) });
+  (o.orders||[]).forEach(r=>{ const c=cli(r.clientId); const base={kindId:r.kindId||"",qty:r.qty||1,client:c?c.name:"",phone:c?c.phone:"",note:r.note||r.title||""};
+    if(r.status==="done") d.entries.push({id:newId(),type:"sale",amount:r.price||0,date:r.date,hours:r.hours||0,...base,ts:r.updatedAt||Date.now()});
+    else d.orders.push({id:newId(),amount:r.price||0,date:r.date,time:r.time||"",prepay:r.prepaid||0,...base}) });
 }
-let chain=Promise.resolve();
-function save(){
-  if(!DB){ try{ localStorage.setItem("kv2:data",JSON.stringify(D)) }catch(e){ showAlert("error","Не вдалося зберегти","Спробуй ще раз.") } return true }
-  COLS.filter(k=>JSON.stringify(D[k])!==lastSaved[k]).forEach(k=>{
-    const json=JSON.stringify(D[k]); lastSaved[k]=json; const items=JSON.parse(json);
-    chain=chain.then(()=>writeDoc("kv-"+k,{items})).catch(e=>{ lastSaved[k]=""; showAlert("error","Зміни не збережено", e&&e.code==="quota_exceeded"?"Сховище заповнене. Збережи копію і видали старі записи.":"Перевір інтернет і повтори дію. Без цього після оновлення сторінки зміни зникнуть.") });
-  });
-  return true;
-}
-async function writeDoc(id,obj){ try{ await DB.doc(BASE+"/"+id).set(obj) }catch(e){ if(e&&e.code==="unavailable"){ await new Promise(r=>setTimeout(r,800)); return DB.doc(BASE+"/"+id).set(obj) } throw e } }
-function meta(v){ if(v===undefined) return metaObj; metaObj=v; if(DB) writeDoc("kv-meta",v).catch(()=>{}) }
-const byId=(a,id)=>a.find(x=>x.id===id);
-const prod=id=>byId(D.products,id), kind=id=>byId(D.kinds,id), cli=id=>byId(D.clients,id);
-
-/* ---------- units & prices ---------- */
-const BIG={"г":"кг","мл":"л","шт":"шт"};
-const unitOpts=u=> u==="шт"?["шт"] : u==="мл"?["л","мл"] : ["кг","г"];
-const toBase=(q,u)=> (u==="кг"||u==="л")? q*1000 : q;          // into г / мл / шт
-const perBig=p=> p&&p.packSize>0 ? p.packPrice/p.packSize*(p.unit==="шт"?1:1000) : 0;
-function qtyLabel(q,base){ if(base==="шт") return fmt(q)+" шт"; return q>=1000? fmt(q/1000)+" "+BIG[base] : fmt(q)+" "+base }
-const orderProfit=o=>(Number(o.price)||0)-(Number(o.ingCost)||0)-(Number(o.extraCost)||0);
-function orderTitle(o){ const k=kind(o.kindId); return (o.title||(k&&k.name)||"Коровай")+((o.qty||1)>1?" × "+o.qty:"") }
-
-/* ---------- state ---------- */
-const S={tab:"orders", month:monthOf(today()), buyTab:"products", moreTab:"kinds", showDone:false, q:""};
+function save(quiet){ try{ localStorage.setItem(KEY,JSON.stringify(D)); return true }catch(e){ if(!quiet) showAlert("error","Не вдалося зберегти","Пам'ять для застосунку заповнена. Збережи копію і напиши Андрію."); return false } }
+function meta(v){ try{ if(v===undefined) return JSON.parse(localStorage.getItem(META)||"{}"); localStorage.setItem(META,JSON.stringify(v)) }catch(e){ return {} } }
+const kindName=id=>{ const k=D.kinds.find(x=>x.id===id); return k?k.name:"" };
 
 /* ---------- ui helpers ---------- */
-function showAlert(kind,title,text){ S.alert={kind,title,text}; if(kind==="error"){ try{ navigator.vibrate&&navigator.vibrate([60,40,60]) }catch(_){} } render(); window.scrollTo({top:0,behavior:"smooth"}) }
+function showAlert(kind,title,text){ S.alert={kind,title,text}; if(kind==="error"){ try{ navigator.vibrate&&navigator.vibrate([60,40,60]) }catch(_){} } render() }
 let tt=null;
 function toast(text,undo){ const el=$("toast"); el.innerHTML=`<div class="toast" role="status"><span>${esc(text)}</span>${undo?'<button id="tUndo">Скасувати</button>':""}</div>`; if(undo) $("tUndo").onclick=()=>{ el.innerHTML=""; undo() }; clearTimeout(tt); tt=setTimeout(()=>{ el.innerHTML="" }, undo?7000:3000) }
 function confirmBox(title,text,ok){ return new Promise(res=>{ const m=$("modal"); m.innerHTML=`<div class="backdrop" id="bd"><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dT"><h3 id="dT">${esc(title)}</h3><p>${esc(text)}</p><div class="btns"><button class="no" id="dNo">Скасувати</button><button class="yes" id="dYes">${esc(ok)}</button></div></div></div>`; const done=v=>{ m.innerHTML=""; res(v) }; $("bd").onclick=e=>{ if(e.target.id==="bd") done(false) }; $("dNo").onclick=()=>done(false); $("dYes").onclick=()=>done(true); $("dNo").focus() }) }
-async function saveFile(name,data){ if(DL){ await DL.save({filename:name,data}); return } const u=URL.createObjectURL(new Blob([data])); const a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000) }
-const chips=(items,sel,attr)=>`<div class="toggle" style="flex-wrap:wrap">${items.map(([v,l])=>`<button type="button" ${attr}="${esc(v)}" aria-pressed="${v===sel}" style="flex:1 1 30%">${esc(l)}</button>`).join("")}</div>`;
+function download(name,data,type){ const u=URL.createObjectURL(new Blob([data],{type})); const a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000) }
 
-/* ---------- views: orders ---------- */
-function payChip(o){ if(o.paid) return `<span class="chip ok">Оплачено</span>`; if(o.prepaid>0) return `<span class="chip warn">Передоплата ${fmtM(o.prepaid)} · ще ${fmtM((o.price||0)-o.prepaid)}</span>`; return `<span class="chip bad">Не оплачено</span>` }
-function orderCard(o){
-  const c=cli(o.clientId), t=today(), late=o.status!=="done"&&o.date<t, d=dOf(o.date);
-  return `<div class="card ${late?"late":(o.status!=="done"&&o.date===t?"today":"")}" role="button" tabindex="0" data-order="${o.id}">
-    <div class="row1"><span class="when">${dayLabel(o.date)}${o.time?" о "+esc(o.time):""}<small>${WD[d.getDay()]}${late?" · прострочено":""}</small></span><span class="price num">${fmtM(o.price)}</span></div>
-    <div class="what">${esc(orderTitle(o))}</div>
-    <div class="who">${c?esc(c.name):"Клієнта не вказано"}${c&&c.phone?` · <a href="tel:${esc(c.phone.replace(/[^\d+]/g,""))}" data-stop="1">${esc(c.phone)}</a>`:""}</div>
-    ${o.note?`<div class="who" style="font-style:italic">${esc(o.note)}</div>`:""}
-    <div class="chips">${o.status==="done"?'<span class="chip ok">Видано</span>':""}${payChip(o)}
-      ${o.status!=="done"?`<button class="act" data-done="${o.id}">Видано ✓</button>`:(!o.paid?`<button class="act" data-paid="${o.id}">Оплачено ✓</button>`:"")}</div>
-  </div>`;
+/* ---------- describing records ---------- */
+function describe(e){
+  if(e.type==="sale"){ const k=kindName(e.kindId); return {ic:"🍞",t:(k||"Оплата")+(e.qty>1?" × "+e.qty:""),s:[e.client,e.hours?fmtH(e.hours):"",e.note].filter(Boolean).join(" · "),v:"+"+fmtM(e.amount),cls:"in"} }
+  if(e.type==="buy") return {ic:"🛒",t:e.product||e.note||"Продукти",s:[qtyText(e.qty,e.unit),perUnit(e),e.product?e.note:""].filter(Boolean).join(" · "),v:"−"+fmtM(e.amount),cls:"out"};
+  if(e.type==="order"){ const k=kindName(e.kindId); return {ic:"📅",t:"Замовлення: "+(k||"коровай")+(e.qty>1?" × "+e.qty:""),s:[dayLabel(e.date),e.client,e.prepay?"передоплата "+fmtM(e.prepay):""].filter(Boolean).join(" · "),v:fmtM(e.amount),cls:""} }
+  return {ic:"🔥",t:e.cat||"Інше",s:e.note||"",v:"−"+fmtM(e.amount),cls:"out"};
+}
+
+/* ---------- quick add ---------- */
+function quickAdd(){
+  const inp=$("quick"), val=inp.value.trim(); if(!val){ inp.focus(); return }
+  const {out,bad}=parseLine(val,today(),D.kinds);
+  if(!out.length){ S.res={items:[],bad}; render(); $("quick").focus(); return }
+  const now=Date.now(), ids=[], oids=[];
+  out.forEach((r,i)=>{ const rec={...r,id:newId()+i,ts:now+i}; if(r.type==="order"){ delete rec.type; delete rec.hours; D.orders.push(rec); oids.push(rec.id) } else { D.entries.push(rec); ids.push(rec.id) } });
+  if(!save()) return;
+  inp.value="";
+  S.res={items:out,bad,ids,oids};
+  const m=out.find(r=>r.type!=="order"); if(m) S.month=monthOf(m.date);
+  render();
+}
+function undoQuick(){ const r=S.res; if(!r) return; D.entries=D.entries.filter(e=>!(r.ids||[]).includes(e.id)); D.orders=D.orders.filter(o=>!(r.oids||[]).includes(o.id)); save(); S.res=null; render(); toast("Скасовано") }
+
+/* ---------- stats ---------- */
+function stats(k){
+  const es=D.entries.filter(e=>monthOf(e.date)===k);
+  const sales=es.filter(e=>e.type==="sale"), buys=es.filter(e=>e.type==="buy"), exps=es.filter(e=>e.type==="exp");
+  const rev=sales.reduce((s,e)=>s+e.amount,0), buy=buys.reduce((s,e)=>s+e.amount,0), oth=exps.reduce((s,e)=>s+e.amount,0);
+  const n=sales.reduce((s,e)=>s+(Number(e.qty)||0),0), hours=sales.reduce((s,e)=>s+(Number(e.hours)||0),0);
+  const byCat={}; exps.forEach(e=>{ byCat[e.cat||"Інше"]=(byCat[e.cat||"Інше"]||0)+e.amount });
+  const byKind={}; sales.forEach(e=>{ if(!e.qty) return; const nm=kindName(e.kindId)||"Інше"; const b=byKind[nm]||(byKind[nm]={n:0,rev:0}); b.n+=e.qty; b.rev+=e.amount });
+  return {es,rev,buy,oth,cost:buy+oth,net:rev-buy-oth,n,hours,byCat,byKind,hoursMissing:sales.some(e=>e.qty&&!e.hours)};
+}
+
+/* ---------- views ---------- */
+function vMonth(){
+  const k=S.month, st=stats(k), prev=stats(shiftMonth(k,-1)), [y,m]=k.split("-").map(Number);
+  const per = st.n? st.net/st.n : 0, cost1 = st.n? st.cost/st.n : 0;
+  const up=D.orders.filter(o=>monthOf(o.date)===k);
+  return `
+  <div class="profit"><div class="lbl">Заробила в ${MIN[m-1]}</div><div class="big num ${st.net<0?"neg":""}">${fmtM(st.net)}</div>
+    <div class="calc"><span class="m">Продала на</span><span class="num">${fmtM(st.rev)}</span>
+    <span class="m">Продукти</span><span class="num">−${fmtM(st.buy)}</span>
+    <span class="m">Інші витрати</span><span class="num">−${fmtM(st.oth)}</span>
+    <span class="tot">Лишилось</span><span class="tot num">${fmtM(st.net)}</span></div>
+    ${prev.rev||prev.cost?`<div class="lbl" style="margin-top:8px;font-size:.9rem">Минулого місяця: ${fmtM(prev.net)}</div>`:""}</div>
+  <div class="tiles">
+    <div class="tile"><span>Короваїв продано</span><b class="num">${st.n}</b></div>
+    <div class="tile"><span>Заробіток з одного</span><b class="num">${st.n?fmtM(per):"—"}</b></div>
+    <div class="tile"><span>Витрати на один</span><b class="num">${st.n?fmtM(cost1):"—"}</b></div>
+    <div class="tile"><span>Заробіток за годину</span><b class="num">${st.hours?fmtM(st.net/st.hours):"—"}</b></div>
+  </div>
+  ${st.n&&!st.hours?`<div class="alert" style="border-color:var(--line);background:var(--panel)"><div class="tx"><b>Скільки коштує твоя година?</b>Допиши до продажу час роботи, наприклад «коровай 1800 5год», — і тут з'явиться заробіток за годину.</div></div>`:""}
+  ${up.length?`<div class="alert" style="border-color:var(--line);background:var(--panel)"><div class="tx"><b>Ще попереду: ${up.length} замовл. на ${fmtM(up.reduce((s,o)=>s+o.amount,0))}</b>Потраплять у підсумок, коли позначиш «Видано».</div></div>`:""}
+  ${Object.keys(st.byKind).length?`<section><h2>Що продала</h2><div class="list">${Object.entries(st.byKind).sort((a,b)=>b[1].rev-a[1].rev).map(([n,b])=>`<div class="row"><div class="main"><div>${esc(n)} <span style="color:var(--muted);font-weight:400">× ${b.n}</span></div><small>у середньому ${fmtM(b.rev/b.n)} за штуку</small></div><span class="val num">${fmtM(b.rev)}</span></div>`).join("")}</div></section>`:""}
+  ${st.cost?`<section><h2>Куди пішли гроші</h2><div class="list">${[["Продукти",st.buy],...Object.entries(st.byCat).sort((a,b)=>b[1]-a[1])].filter(x=>x[1]>0).map(([n,v])=>`<div class="row"><div class="main"><div>${esc(n)}</div><small>${Math.round(v/st.cost*100)}% витрат</small></div><span class="val num">−${fmtM(v)}</span></div>`).join("")}</div></section>`:""}
+  ${!st.es.length?`<div class="empty"><b>У ${MIN[m-1]} ще нічого не записано</b>Почни з рядка вгорі — напиши, що продала чи купила.</div>`:""}`;
+}
+function vRecords(){
+  const k=S.month, es=D.entries.filter(e=>monthOf(e.date)===k).sort((a,b)=>b.date.localeCompare(a.date)||(b.ts||0)-(a.ts||0));
+  if(!es.length) return `<div class="empty"><b>Записів немає</b>Усе, що запишеш у рядку вгорі, з'явиться тут.</div>`;
+  const days={}; es.forEach(e=>{ (days[e.date]=days[e.date]||[]).push(e) });
+  return Object.keys(days).map(d=>{ const list=days[d]; const inn=list.filter(e=>e.type==="sale").reduce((s,e)=>s+e.amount,0), outt=list.filter(e=>e.type!=="sale").reduce((s,e)=>s+e.amount,0);
+    return `<section style="margin-bottom:14px"><h2 style="font-size:1.05rem">${dayLabel(d)}, ${WD[dOf(d).getDay()]} <small>${inn?'<span style="color:var(--green)">+'+fmtM(inn)+'</span> ':""}${outt?"−"+fmtM(outt):""}</small></h2><div class="list">${list.map(e=>{ const x=describe(e); return `<button class="row" data-edit="${e.id}"><span class="ic2" aria-hidden="true">${x.ic}</span><div class="main"><div>${esc(x.t)}</div>${x.s?`<small>${esc(x.s)}</small>`:""}</div><span class="val num ${x.cls==="in"?"pos":""}">${x.v}</span></button>` }).join("")}</div></section>` }).join("");
 }
 function vOrders(){
-  const t=today(), open=D.orders.filter(o=>o.status!=="done").sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
-  const late=open.filter(o=>o.date<t), now=open.filter(o=>o.date===t), soon=open.filter(o=>o.date>t);
-  const unpaid=D.orders.filter(o=>o.status==="done"&&!o.paid).sort((a,b)=>a.date.localeCompare(b.date));
-  const done=D.orders.filter(o=>o.status==="done"&&o.paid).sort((a,b)=>b.date.localeCompare(a.date));
-  let h="";
-  if(!D.kinds.length && !D.orders.length){
-    h+=`<section><h2>Почнімо</h2><div class="list" style="padding:4px 14px"><ol class="steps">
-      <li class="${D.kinds.length?"done":""}"><div><b>Додай види короваїв</b><br><span style="color:var(--muted)">Назва, звичайна ціна і приблизна собівартість. Склад і рецепт не потрібні.</span><br><button class="linkbtn" data-go="kind">Додати вид</button></div></li>
-      <li><div><b>Записуй закупки</b><br><span style="color:var(--muted)">Що купила і за скільки — так видно реальні витрати за місяць.</span><br><button class="linkbtn" data-go="buy">До закупок</button></div></li>
-      <li><div><b>Записуй замовлення</b><br><span style="color:var(--muted)">Кнопка «+ Замовлення» внизу.</span></div></li></ol></div></section>`;
-  }
-  if(late.length) h+=`<section><h2>Прострочені <small>${late.length}</small></h2>${late.map(orderCard).join("")}</section>`;
-  h+=`<section><h2>Сьогодні <small>${now.length||""}</small></h2>${now.length?now.map(orderCard).join(""):`<div class="empty">На сьогодні замовлень немає.</div>`}</section>`;
-  h+=`<section><h2>Найближчі <small>${soon.length||""}</small></h2>${soon.length?soon.map(orderCard).join(""):`<div class="empty"><b>Нових замовлень поки немає</b>Натисни «+ Замовлення», щоб записати.</div>`}</section>`;
-  if(unpaid.length) h+=`<section><h2>Видано, чекаємо оплату <small>${fmtM(unpaid.reduce((s,o)=>s+(o.price||0)-(o.prepaid||0),0))}</small></h2>${unpaid.map(orderCard).join("")}</section>`;
-  if(done.length) h+=`<section><h2>Завершені <small>${done.length}</small></h2>${S.showDone?done.slice(0,60).map(orderCard).join(""):`<button class="addline" data-showdone="1">Показати завершені</button>`}</section>`;
-  return h;
+  const t=today(), os=D.orders.slice().sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+  let h=`<button class="addline" id="newOrder" style="margin-top:0">+ Нове замовлення</button>`;
+  if(!os.length) return h+`<div class="empty"><b>Замовлень немає</b>Запиши в рядку вгорі: «замовлення 18.10 Оксана коровай 2000 перед 500».</div>`;
+  return h+os.map(o=>{ const late=o.date<t, k=kindName(o.kindId); const doing=S.doneId===o.id;
+    return `<div class="card ${late?"late":o.date===t?"today":""}">
+      <div class="row1"><span class="when">${dayLabel(o.date)}${o.time?" о "+esc(o.time):""}<small>${WD[dOf(o.date).getDay()]}${late?" · прострочено":""}</small></span><span class="price num">${fmtM(o.amount)}</span></div>
+      <div class="what">${esc(k||"Коровай")}${o.qty>1?" × "+o.qty:""}</div>
+      <div class="who">${o.client?esc(o.client):"Клієнта не вказано"}${o.phone?` · <a href="tel:${esc(o.phone.replace(/[^\d+]/g,""))}">${esc(o.phone)}</a>`:""}</div>
+      ${o.note?`<div class="who" style="font-style:italic">${esc(o.note)}</div>`:""}
+      ${doing?`<div class="payform"><b>Видано — записати продаж</b><div class="two"><label class="fld" style="margin:0"><span>Отримала всього, ₴</span><input class="inp" id="dAmt" inputmode="decimal" value="${o.amount}"></label><label class="fld" style="margin:0"><span>Годин роботи</span><input class="inp" id="dHrs" inputmode="decimal" placeholder="напр. 5"></label></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="dOk">Записати</button><button class="btn ghost" id="dNo">Скасувати</button></div></div>`
+      :`<div class="chips">${o.prepay?`<span class="chip warn">Передоплата ${fmtM(o.prepay)} · ще ${fmtM(o.amount-o.prepay)}</span>`:`<span class="chip bad">Без передоплати</span>`}<button class="act" data-done="${o.id}">Видано ✓</button><button class="chip" data-oedit="${o.id}" style="border:0">Змінити</button></div>`}
+    </div>` }).join("");
 }
-
-/* ---------- views: purchases ---------- */
-function vBuy(){
-  const k=S.month, [y,m]=k.split("-").map(Number);
-  const ps=D.purchases.filter(p=>monthOf(p.date)===k).sort((a,b)=>b.date.localeCompare(a.date)||(b.ts||0)-(a.ts||0));
-  const ex=D.expenses.filter(e=>monthOf(e.date)===k).sort((a,b)=>b.date.localeCompare(a.date));
-  const sumP=ps.reduce((s,p)=>s+(p.amount||0),0), sumE=ex.reduce((s,e)=>s+(e.amount||0),0);
-  const t=S.buyTab;
-  let h=`<div class="month"><button class="arrow" data-month="-1" aria-label="Попередній місяць">‹</button><h2>${MONTHS[m-1]} ${y}</h2><button class="arrow" data-month="1" aria-label="Наступний місяць">›</button></div>
-  <div class="tiles"><div class="tile"><span>Продукти</span><b class="num">${fmtM(sumP)}</b></div><div class="tile"><span>Інші витрати</span><b class="num">${fmtM(sumE)}</b></div></div>
-  <div class="seg"><button data-bt="products" aria-pressed="${t==="products"}">Продукти</button><button data-bt="other" aria-pressed="${t==="other"}">Інше</button><button data-bt="prices" aria-pressed="${t==="prices"}">Ціни</button></div>`;
-  if(t==="products"){
-    h+= ps.length? `<div class="list">${ps.map(p=>{ const pr=prod(p.productId); const name=pr?pr.name:(p.name||"Чек"); return `<button class="row" data-pur="${p.id}"><div class="main"><div>${esc(name)}${p.qty?` <span style="color:var(--muted);font-weight:400">${qtyLabel(p.qty,pr?pr.unit:"шт")}</span>`:""}</div><small>${shortDate(p.date)}${p.note?" · "+esc(p.note):""}</small></div><span class="val num">−${fmtM(p.amount)}</span></button>` }).join("")}</div>`
-      : `<div class="empty"><b>Закупок цього місяця немає</b>Записуй усе, що купуєш для короваїв: окремі продукти або чек одним рядком.</div>`;
-  } else if(t==="other"){
-    h+= ex.length? `<div class="list">${ex.map(e=>`<button class="row" data-exp="${e.id}"><div class="main"><div>${esc(e.cat)}</div><small>${shortDate(e.date)}${e.note?" · "+esc(e.note):""}</small></div><span class="val num">−${fmtM(e.amount)}</span></button>`).join("")}</div>`
-      : `<div class="empty"><b>Інших витрат немає</b>Газ, світло, коробки, прикраси, форми — усе, що не продукти.</div>`;
-  } else {
-    const list=D.products.slice().sort((a,b)=>a.name.localeCompare(b.name));
-    h+=`<p class="hintline" style="margin:0 0 10px">Ціни оновлюються самі з кожної закупки. Тут їх можна поправити вручну.</p><div class="list">${list.map(p=>{ const hist=D.purchases.filter(x=>x.productId===p.id&&x.qty>0).sort((a,b)=>b.date.localeCompare(a.date)); let trend=""; if(hist.length>1){ const a=hist[0].amount/hist[0].qty, b=hist[1].amount/hist[1].qty; const ch=Math.round((a/b-1)*100); if(Math.abs(ch)>=3) trend=` <span style="color:${ch>0?"var(--red)":"var(--green)"}">${ch>0?"↑":"↓"}${Math.abs(ch)}%</span>` } return `<button class="row" data-product="${p.id}"><div class="main"><div>${esc(p.name)}</div><small>${p.packPrice>0?(p.priceDate?"від "+shortDate(p.priceDate):"вказано вручну"):"ще не купувала"}</small></div>${p.packPrice>0?`<span class="val num">${fmt(Math.round(perBig(p)*100)/100)} ₴/${BIG[p.unit]}${trend}</span>`:`<span class="val need">—</span>`}</button>` }).join("")}</div>
-    <button class="addline" data-newproduct="1" style="margin-top:12px">+ Додати продукт</button>`;
-  }
-  return h;
-}
-
-/* ---------- views: money ---------- */
-function monthStats(k){
-  const os=D.orders.filter(o=>o.status==="done"&&monthOf(o.date)===k);
-  const rev=os.reduce((s,o)=>s+(o.price||0),0);
-  const buy=D.purchases.filter(p=>monthOf(p.date)===k).reduce((s,p)=>s+(p.amount||0),0);
-  const other=D.expenses.filter(e=>monthOf(e.date)===k).reduce((s,e)=>s+(e.amount||0),0);
-  const hours=os.reduce((s,o)=>s+(o.hours||0),0);
-  const count=os.reduce((s,o)=>s+(o.qty||1),0);
-  const debt=D.orders.filter(o=>!o.paid&&monthOf(o.date)===k).reduce((s,o)=>s+Math.max(0,(o.price||0)-(o.prepaid||0)),0);
-  const estProfit=os.reduce((s,o)=>s+orderProfit(o),0);
-  const byKind={}; os.forEach(o=>{ const n=(kind(o.kindId)||{}).name||o.title||"Інше"; const b=byKind[n]||(byKind[n]={n:0,rev:0,profit:0,hours:0}); b.n+=o.qty||1; b.rev+=o.price||0; b.profit+=orderProfit(o); b.hours+=o.hours||0 });
-  return {os,rev,buy,other,net:rev-buy-other,hours,count,debt,estProfit,byKind,upcoming:D.orders.filter(o=>o.status!=="done"&&monthOf(o.date)===k)};
-}
-function vMoney(){
-  const k=S.month, [y,m]=k.split("-").map(Number), st=monthStats(k);
-  const kinds=Object.entries(st.byKind).sort((a,b)=>b[1].profit-a[1].profit);
-  return `<div class="month"><button class="arrow" data-month="-1" aria-label="Попередній місяць">‹</button><h2>${MONTHS[m-1]} ${y}</h2><button class="arrow" data-month="1" aria-label="Наступний місяць">›</button></div>
-  <div class="profit"><div class="lbl">Заробила за місяць</div><div class="big num ${st.net<0?"neg":""}">${fmtM(st.net)}</div>
-    <div class="calc"><span class="m">Продано короваїв на</span><span class="num">${fmtM(st.rev)}</span>
-    <span class="m">Закупки продуктів</span><span class="num">−${fmtM(st.buy)}</span>
-    <span class="m">Інші витрати</span><span class="num">−${fmtM(st.other)}</span>
-    <span class="tot">Лишилось</span><span class="tot num">${fmtM(st.net)}</span></div></div>
-  <div class="tiles">
-    <div class="tile"><span>Короваїв видано</span><b class="num">${st.count}</b></div>
-    <div class="tile"><span>Заробіток за годину</span><b class="num">${st.hours?fmtM(st.net/st.hours):"—"}</b></div>
-    <div class="tile"><span>Годин роботи</span><b class="num">${st.hours?fmtH(st.hours):"—"}</b></div>
-    <div class="tile"><span>Середня ціна</span><b class="num">${st.count?fmtM(st.rev/st.count):"—"}</b></div>
-  </div>
-  ${st.debt>0?`<div class="alert"><div class="tx"><b>Ще мають доплатити: ${fmtM(st.debt)}</b>За замовлення цього місяця.</div></div>`:""}
-  ${st.upcoming.length?`<div class="alert" style="border-color:var(--line);background:var(--panel)"><div class="tx"><b>Ще не видано: ${st.upcoming.length} на ${fmtM(st.upcoming.reduce((s,o)=>s+(o.price||0),0))}</b>Потраплять у підсумок, коли позначиш «Видано».</div></div>`:""}
-  <section><h2>Який коровай вигідніший</h2>
-  ${kinds.length?`<div class="list">${kinds.map(([n,b])=>`<div class="row"><div class="main"><div>${esc(n)} <span style="color:var(--muted);font-weight:400">× ${b.n}</span></div><small>${fmtM(b.profit/b.n)} з одного${b.hours?" · "+fmtM(b.profit/b.hours)+"/год":""}</small></div><span class="val num" style="color:var(--green)">+${fmtM(b.profit)}</span></div>`).join("")}</div><p class="hintline" style="margin-top:8px">Це оцінка за собівартістю з кожного замовлення. Підсумок угорі рахується з реальних закупок.</p>`
-    :`<div class="empty">З'явиться, коли будуть видані замовлення.</div>`}</section>`;
-}
-
-/* ---------- views: more ---------- */
-function vMore(){
-  const t=S.moreTab;
-  let h=`<div class="seg"><button data-mt="kinds" aria-pressed="${t==="kinds"}">Короваї</button><button data-mt="clients" aria-pressed="${t==="clients"}">Клієнти</button><button data-mt="backup" aria-pressed="${t==="backup"}">Копії</button></div>`;
-  if(t==="kinds"){
-    h+= D.kinds.length? `<div class="list">${D.kinds.map(k=>{ const full=(k.cost||0)+(k.extra||0); return `<button class="row" data-kind="${k.id}"><div class="main"><div>${esc(k.name)}</div><small>Ціна ${fmtM(k.price)} · собівартість ≈ ${fmtM(full)}${k.hours?" · "+fmtH(k.hours):""}</small></div><span class="val num" style="color:var(--green)">+${fmtM((k.price||0)-full)}</span></button>` }).join("")}</div>`
-      : `<div class="empty"><b>Видів короваїв поки немає</b>Додай, які короваї печеш: назва, ціна і приблизна собівартість. Рецепт не потрібен.</div>`;
-    h+=`<button class="addline" data-newkind="1" style="margin-top:12px">+ Додати вид короваю</button>`;
-  } else if(t==="clients"){
-    const q=S.q.trim().toLowerCase();
-    const stats={}; D.orders.forEach(o=>{ if(!o.clientId) return; const s=stats[o.clientId]||(stats[o.clientId]={n:0,sum:0,last:""}); s.n++; s.sum+=o.price||0; if(o.date>s.last) s.last=o.date });
-    const list=D.clients.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).sort((a,b)=>((stats[b.id]||{}).last||"").localeCompare((stats[a.id]||{}).last||"")||a.name.localeCompare(b.name));
-    h+=`<label class="fld"><input class="inp" id="cq" placeholder="Пошук за ім'ям або телефоном" aria-label="Пошук клієнта" value="${esc(S.q)}" autocomplete="off"></label>
-    ${list.length?`<div class="list">${list.map(c=>{ const s=stats[c.id]||{n:0,sum:0}; return `<div class="row"><button class="main" data-client="${c.id}" style="border:0;background:none;text-align:left;padding:0"><div>${esc(c.name)}</div><small>${s.n?`Замовлень: ${s.n} · на ${fmtM(s.sum)}`:"Ще без замовлень"}</small></button>${c.phone?`<a class="call" href="tel:${esc(c.phone.replace(/[^\d+]/g,""))}">Дзвонити</a>`:""}</div>` }).join("")}</div>`:`<div class="empty"><b>${q?"Нікого не знайдено":"Клієнтів поки немає"}</b>${q?"Спробуй інше ім'я.":"Вони з'являться самі, коли запишеш замовлення."}</div>`}
-    <button class="addline" data-newclient="1" style="margin-top:12px">+ Додати клієнта</button>`;
-  } else {
-    const lb=metaObj.lastBackup; const d=lb?Math.floor((Date.now()-lb)/864e5):null;
-    h+=`<div class="list">
-      <div class="row"><div class="main"><div>Остання копія</div><small>${lb?(d<=0?"сьогодні":d+" дн. тому"):"ще не робилась"}</small></div></div>
-      <button class="row" data-backup="1"><div class="main"><div>Зберегти копію у файл</div><small>Усі дані — для переносу чи на всяк випадок</small></div></button>
-      <button class="row" data-csv="1"><div class="main"><div>Таблиця замовлень для Excel</div><small>CSV з усіма замовленнями</small></div></button>
-      <button class="row" data-csvbuy="1"><div class="main"><div>Таблиця закупок і витрат для Excel</div><small>CSV з усіма закупками</small></div></button>
-      <button class="row" data-restore="1"><div class="main"><div>Відновити з копії</div><small>Замінить поточні дані</small></div></button>
-    </div><input type="file" id="restoreFile" accept=".json,application/json" hidden>`;
-  }
-  return h;
+function vRef(){
+  const prices={}; D.entries.filter(e=>e.type==="buy"&&e.product&&e.qty>0).sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{ (prices[e.product]=prices[e.product]||[]).push(e) });
+  const lb=meta().lastBackup, ago=lb?Math.floor((Date.now()-lb)/864e5):null;
+  return `<section><h2>Мої короваї</h2><div class="list">${D.kinds.map(k=>`<button class="row" data-kind="${k.id}"><div class="main"><div>${esc(k.name)}</div><small>${k.price?"звичайна ціна "+fmtM(k.price):"ціну не вказано"}${(k.kw||[]).length?" · слова: "+esc(k.kw.join(", ")):""}</small></div><span class="val" style="color:var(--muted)">›</span></button>`).join("")}</div>
+    <button class="addline" id="newKind" style="margin-top:10px">+ Додати вид</button>
+    <p class="hintline" style="margin-top:-6px">Якщо вказати звичайну ціну, можна писати просто «весільний Оксана» — сума підставиться сама.</p></section>
+  <section><h2>Ціни продуктів</h2>${Object.keys(prices).length?`<div class="list">${Object.entries(prices).map(([n,l])=>{ const a=l[l.length-1], b=l[l.length-2]; let tr=""; if(b){ const pa=a.amount/a.qty, pb=b.amount/b.qty, ch=Math.round((pa/pb-1)*100); if(Math.abs(ch)>=3) tr=` <span style="color:${ch>0?"var(--red)":"var(--green)"}">${ch>0?"↑":"↓"}${Math.abs(ch)}%</span>` } return `<div class="row"><div class="main"><div>${esc(n)}</div><small>востаннє ${dayLabel(a.date).toLowerCase()}</small></div><span class="val num">${perUnit(a)}${tr}</span></div>` }).join("")}</div>`:`<div class="empty">З'являться, коли запишеш закупку з вагою, наприклад «борошно 5кг 200».</div>`}</section>
+  <section><h2>Як записувати</h2><div class="list" style="padding:6px 14px">
+    ${[["коровай Оксана 1800 5год","продаж: хто, скільки, час роботи"],["2 короваї 3600","продаж двох короваїв"],["борошно 5кг 200","закупка — ціна за кг порахується сама"],["яйця 30шт 195, масло 400","кілька записів через кому"],["АТБ 1250","чек одним рядком"],["газ 400 · світло 650 · коробки 300","інші витрати"],["вчора борошно 2кг 80","запис на вчора (або «12.10» на початку)"],["замовлення 18.10 Оксана коровай 2000 перед 500","майбутнє замовлення"]].map(([a,b])=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><code style="font-weight:600">${esc(a)}</code><div style="color:var(--muted);font-size:.9rem">${esc(b)}</div></div>`).join("")}
+    <p class="hintline" style="margin:10px 0 6px">Помилилась? Натисни на запис у «Записах» і виправ.</p></div></section>
+  <section><h2>Резервна копія</h2><div class="list">
+    <div class="row"><div class="main"><div>Остання копія</div><small>${lb?(ago<=0?"сьогодні":ago+" дн. тому"):"ще не робилась"}</small></div></div>
+    <button class="row" id="bkSave"><div class="main"><div>Зберегти копію</div><small>Надішли файл Андрію — на випадок, якщо з телефоном щось трапиться</small></div></button>
+    <button class="row" id="bkCsv"><div class="main"><div>Таблиця для Excel</div><small>Усі записи у CSV</small></div></button>
+    <button class="row" id="bkLoad"><div class="main"><div>Відновити з копії</div><small>Замінить поточні дані</small></div></button>
+  </div><input type="file" id="bkFile" accept=".json,application/json" hidden></section>`;
 }
 
 /* ---------- render ---------- */
-const TITLES={orders:"Замовлення",buy:"Закупки",money:"Гроші",more:"Довідник"};
 function render(){
-  $("ttl").textContent=TITLES[S.tab];
-  document.querySelectorAll("[data-nav]").forEach(b=>b.dataset.nav===S.tab?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
-  let top="";
-  if(S.update) top+=`<div class="alert"><div class="tx"><b>Є нова версія</b>Усі записи збережуться.</div><button id="updB">Оновити</button></div>`;
-  if(S.alert) top+=`<div class="alert ${S.alert.kind==="error"?"error":""}" role="alert"><div class="tx"><b>${esc(S.alert.title)}</b>${esc(S.alert.text)}</div><button id="alX">OK</button></div>`;
-  if(S.migrated) top+=`<div class="alert"><div class="tx"><b>Рецепти прибрано</b>Склад і кількості видалено. Кожен рецепт став «видом короваю» з однією сумою собівартості.</div><button id="migX">OK</button></div>`;
-  const body=S.tab==="orders"?vOrders():S.tab==="buy"?vBuy():S.tab==="money"?vMoney():vMore();
-  $("app").innerHTML=top+body+`<div class="foot">Версія ${APP_VERSION} · ${DB?"дані зберігаються в акаунті":"дані на цьому телефоні · працює без інтернету"}</div>`;
-  const fab = S.tab==="orders"?"Замовлення": S.tab==="buy"?(S.buyTab==="other"?"Витрата":S.buyTab==="prices"?"":"Закупка"): "";
-  $("fab").hidden=!fab; $("fabT").textContent=fab;
+  const k=S.month, [y,m]=k.split("-").map(Number);
+  const r=S.res;
+  let res="";
+  if(r){
+    res=`<div class="result" role="status">${r.items.length?`<div class="rhead">Записано ${r.items.length===1?"":"("+r.items.length+")"}</div>${r.items.map(it=>{ const x=describe(it); return `<div class="rline"><span class="ic2">${x.ic}</span><div class="main"><div>${esc(x.t)}</div>${x.s?`<small>${esc(x.s)}</small>`:""}</div><b class="num ${x.cls==="in"?"pos":""}">${x.v}</b></div>` }).join("")}`:""}
+    ${r.bad&&r.bad.length?`<div class="rbad">Не зрозуміла: «${esc(r.bad.join("», «"))}». Напиши, наприклад: <b>коровай 1800</b> або <b>борошно 5кг 200</b>.</div>`:""}
+    <div class="ractions">${r.items.length?'<button class="linkbtn" id="resUndo">Скасувати</button>':""}<button class="linkbtn" id="resX" style="color:var(--muted)">Сховати</button></div></div>`;
+  }
+  const backupDue=D.entries.length>=10 && (!meta().lastBackup || Date.now()-meta().lastBackup>14*864e5);
+  $("app").innerHTML=`
+  ${S.update?`<div class="alert"><div class="tx"><b>Є нова версія</b>Усі записи збережуться.</div><button id="updB">Оновити</button></div>`:""}
+  ${S.alert?`<div class="alert ${S.alert.kind==="error"?"error":""}" role="alert"><div class="tx"><b>${esc(S.alert.title)}</b>${esc(S.alert.text)}</div><button id="alX">OK</button></div>`:""}
+  <form class="qform" id="qform" action="javascript:void(0)" autocomplete="off">
+    <label for="quick" class="qlabel">Що сталося?</label>
+    <div class="qrow"><input id="quick" class="inp" type="text" placeholder="коровай Оксана 1800" autocomplete="off" enterkeyhint="send"><button class="btn" type="submit" style="flex:0 0 auto;padding:12px 18px">Записати</button></div>
+    <div class="qchips"><button type="button" data-tpl="коровай ">🍞 Продала</button><button type="button" data-tpl="борошно ">🛒 Купила</button><button type="button" data-tpl="газ ">🔥 Витрата</button><button type="button" data-tpl="замовлення ">📅 Замовлення</button></div>
+  </form>
+  ${res}
+  ${backupDue?`<div class="alert"><div class="tx"><b>Зроби резервну копію</b>Записи зберігаються лише на цьому телефоні.</div><button id="bkNow">Зберегти</button></div>`:""}
+  <div class="month"><button class="arrow" data-m="-1" aria-label="Попередній місяць">‹</button><h2>${MONTHS[m-1]} ${y}</h2><button class="arrow" data-m="1" aria-label="Наступний місяць">›</button></div>
+  <div class="seg" role="tablist">${[["month","Підсумок"],["rec","Записи"],["orders","Замовлення"+(D.orders.length?" ("+D.orders.length+")":"")],["ref","Довідник"]].map(([v,l])=>`<button role="tab" data-tab="${v}" aria-pressed="${S.tab===v}">${l}</button>`).join("")}</div>
+  ${S.tab==="month"?vMonth():S.tab==="rec"?vRecords():S.tab==="orders"?vOrders():vRef()}
+  <div class="foot">Версія ${APP_VERSION} · працює без інтернету · дані на цьому телефоні</div>`;
   bind();
 }
 function bind(){
-  const A=$("app"), on=(sel,fn)=>A.querySelectorAll(sel).forEach(fn);
+  const A=$("app"), on=(s,f)=>A.querySelectorAll(s).forEach(f);
+  $("qform").addEventListener("submit",e=>{ e.preventDefault(); quickAdd() });
+  on("[data-tpl]",b=>b.onclick=()=>{ const q=$("quick"); q.value=b.dataset.tpl; q.focus(); try{ q.setSelectionRange(q.value.length,q.value.length) }catch(_){} });
+  if($("resUndo")) $("resUndo").onclick=undoQuick;
+  if($("resX")) $("resX").onclick=()=>{ S.res=null; render() };
   if($("updB")) $("updB").onclick=()=>S.update&&S.update.postMessage("skipWaiting");
   if($("alX")) $("alX").onclick=()=>{ S.alert=null; render() };
-  if($("migX")) $("migX").onclick=()=>{ S.migrated=false; render() };
-  on("[data-order]",el=>{ const open=e=>{ if(e.target.closest("[data-done],[data-paid],[data-stop]")) return; orderSheet(el.dataset.order) }; el.onclick=open; el.onkeydown=e=>{ if(e.key==="Enter") open(e) } });
-  on("[data-done]",b=>b.onclick=e=>{ e.stopPropagation(); quickSet(b.dataset.done,{status:"done"},"Видано") });
-  on("[data-paid]",b=>b.onclick=e=>{ e.stopPropagation(); quickSet(b.dataset.paid,{paid:true},"Оплачено") });
-  on("[data-showdone]",b=>b.onclick=()=>{ S.showDone=true; render() });
-  on("[data-go]",b=>b.onclick=()=>{ if(b.dataset.go==="kind") kindSheet(null); else { S.tab="buy"; render() } });
-  on("[data-month]",b=>b.onclick=()=>{ S.month=shiftMonth(S.month,Number(b.dataset.month)); render() });
-  on("[data-bt]",b=>b.onclick=()=>{ S.buyTab=b.dataset.bt; render() });
-  on("[data-mt]",b=>b.onclick=()=>{ S.moreTab=b.dataset.mt; render() });
-  on("[data-pur]",b=>b.onclick=()=>purchaseSheet(b.dataset.pur));
-  on("[data-exp]",b=>b.onclick=()=>expenseSheet(b.dataset.exp));
-  on("[data-product]",b=>b.onclick=()=>productSheet(b.dataset.product));
-  on("[data-newproduct]",b=>b.onclick=()=>productSheet(null));
+  on("[data-m]",b=>b.onclick=()=>{ S.month=shiftMonth(S.month,Number(b.dataset.m)); render() });
+  on("[data-tab]",b=>b.onclick=()=>{ S.tab=b.dataset.tab; S.doneId=null; render() });
+  on("[data-edit]",b=>b.onclick=()=>entrySheet(b.dataset.edit));
+  on("[data-done]",b=>b.onclick=()=>{ S.doneId=b.dataset.done; render(); const h=$("dHrs"); h&&h.focus() });
+  if($("dNo")) $("dNo").onclick=()=>{ S.doneId=null; render() };
+  if($("dOk")) $("dOk").onclick=()=>{
+    const o=D.orders.find(x=>x.id===S.doneId); if(!o) return; const amount=num($("dAmt").value);
+    if(!(amount>0)) return showAlert("warn","Вкажи суму","Скільки отримала за замовлення всього.");
+    const e={id:newId(),type:"sale",amount,date:today()<o.date?today():o.date<=today()?today():o.date,kindId:o.kindId,qty:o.qty||1,client:o.client||"",phone:o.phone||"",hours:num($("dHrs").value),note:o.note||"",ts:Date.now()};
+    D.entries.push(e); const i=D.orders.indexOf(o); D.orders.splice(i,1); S.doneId=null; save(); render();
+    toast("Продаж записано: "+fmtM(amount),()=>{ D.entries=D.entries.filter(x=>x.id!==e.id); D.orders.splice(i,0,o); save(); render() });
+  };
+  on("[data-oedit]",b=>b.onclick=()=>orderSheet(b.dataset.oedit));
+  if($("newOrder")) $("newOrder").onclick=()=>orderSheet(null);
   on("[data-kind]",b=>b.onclick=()=>kindSheet(b.dataset.kind));
-  on("[data-newkind]",b=>b.onclick=()=>kindSheet(null));
-  on("[data-client]",b=>b.onclick=()=>clientSheet(b.dataset.client));
-  on("[data-newclient]",b=>b.onclick=()=>clientSheet(null));
-  on("[data-backup]",b=>b.onclick=exportBackup);
-  on("[data-csv]",b=>b.onclick=exportOrders);
-  on("[data-csvbuy]",b=>b.onclick=exportBuys);
-  on("[data-restore]",b=>b.onclick=()=>$("restoreFile").click());
-  if($("restoreFile")) $("restoreFile").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(f) importBackup(f) };
-  if($("cq")) $("cq").oninput=e=>{ S.q=e.target.value; const p=e.target.selectionStart; render(); const q=$("cq"); q.focus(); try{ q.setSelectionRange(p,p) }catch(_){} };
-}
-function quickSet(id,patch,label){
-  const o=byId(D.orders,id); if(!o) return; const prev={status:o.status,paid:o.paid};
-  Object.assign(o,patch,{updatedAt:Date.now()}); save(); render();
-  toast(label+": "+orderTitle(o)+(patch.status==="done"&&!o.paid?" — не забудь позначити оплату":""),()=>{ Object.assign(o,prev); save(); render() });
+  if($("newKind")) $("newKind").onclick=()=>kindSheet(null);
+  if($("bkSave")) $("bkSave").onclick=backup;
+  if($("bkNow")) $("bkNow").onclick=backup;
+  if($("bkCsv")) $("bkCsv").onclick=csv;
+  if($("bkLoad")) $("bkLoad").onclick=()=>$("bkFile").click();
+  if($("bkFile")) $("bkFile").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(f) restore(f) };
 }
 
 /* ---------- sheets ---------- */
@@ -463,253 +594,104 @@ function openSheet(title,html,onBind){
   dirty=false;
   $("sheet").innerHTML=`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shT"><div class="head"><div class="in"><button class="back" id="shBack">‹ Назад</button><h2 id="shT">${esc(title)}</h2></div></div><div class="body">${html}</div></div>`;
   document.body.style.overflow="hidden";
-  $("shBack").onclick=async()=>{ if(dirty && !(await confirmBox("Вийти без збереження?","Зміни в цій формі буде втрачено.","Вийти"))) return; closeSheet() };
+  $("shBack").onclick=async()=>{ if(dirty&&!(await confirmBox("Вийти без збереження?","Зміни буде втрачено.","Вийти"))) return; closeSheet() };
   $("sheet").querySelector(".sheet").addEventListener("input",()=>{ dirty=true });
   onBind&&onBind();
 }
 function closeSheet(){ $("sheet").innerHTML=""; document.body.style.overflow="" }
-const saveBar=(p,extra)=>`<div class="save"><div class="in">${extra||""}<button class="btn" id="shSave">${esc(p)}</button></div></div>`;
-const val=id=>{ const e=$(id); return e?e.value:"" };
-function alertIn(text){ let el=$("sheetErr"); if(!el){ el=document.createElement("div"); el.id="sheetErr"; el.className="alert error"; el.setAttribute("role","alert"); $("sheet").querySelector(".body").prepend(el) } el.innerHTML=`<div class="tx"><b>${esc(text)}</b></div>`; $("sheet").querySelector(".sheet").scrollTo({top:0,behavior:"smooth"}); try{ navigator.vibrate&&navigator.vibrate(80) }catch(_){} }
-function upsert(arr,rec){ const i=arr.findIndex(x=>x.id===rec.id); if(i>=0) arr[i]=rec; else arr.push(rec) }
-async function removeWithUndo(arr,id,title,text,done){
-  if(!(await confirmBox(title,text,"Видалити"))) return false;
-  const i=arr.findIndex(x=>x.id===id); const old=arr[i]; arr.splice(i,1); save(); closeSheet(); render();
-  toast(done,()=>{ arr.push(old); save(); render() }); return true;
-}
+const saveBar=(p,del)=>`<div class="save"><div class="in">${del?'<button class="btn danger" id="shDel">Видалити</button>':""}<button class="btn" id="shSave">${esc(p)}</button></div></div>`;
+function alertIn(text){ let el=$("sheetErr"); if(!el){ el=document.createElement("div"); el.id="sheetErr"; el.className="alert error"; el.setAttribute("role","alert"); $("sheet").querySelector(".body").prepend(el) } el.innerHTML=`<div class="tx"><b>${esc(text)}</b></div>`; $("sheet").querySelector(".sheet").scrollTo({top:0,behavior:"smooth"}) }
+const seg=(items,sel,attr)=>`<div class="toggle" style="flex-wrap:wrap">${items.map(([v,l])=>`<button type="button" ${attr}="${esc(v)}" aria-pressed="${v===sel}" style="flex:1 1 28%">${esc(l)}</button>`).join("")}</div>`;
+function pick(attr,set){ document.querySelectorAll(`[${attr}]`).forEach(b=>b.onclick=()=>{ document.querySelectorAll(`[${attr}]`).forEach(x=>x.setAttribute("aria-pressed",x===b)); set(b.getAttribute(attr)); dirty=true }) }
 
-/* order */
+function entrySheet(id){
+  const e={...D.entries.find(x=>x.id===id)}; if(!e.id) return;
+  let type=e.type, cat=e.cat||"Інше";
+  const big=e.unit==="г"||e.unit==="мл", unitShow= e.unit==="г"?"кг":e.unit==="мл"?"л":"шт";
+  const html=`${seg([["sale","🍞 Продаж"],["buy","🛒 Закупка"],["exp","🔥 Витрата"]],type,"data-ty")}
+    <div class="two"><label class="fld"><span>Сума, ₴</span><input class="inp" id="eAmt" inputmode="decimal" value="${e.amount}"></label><label class="fld"><span>Дата</span><input class="inp" id="eDate" type="date" value="${e.date}"></label></div>
+    <div data-for="sale"><label class="fld"><span>Який коровай</span><select class="inp" id="eKind"><option value="">— просто оплата (не рахувати коровай)</option>${D.kinds.map(k=>`<option value="${k.id}" ${k.id===e.kindId?"selected":""}>${esc(k.name)}</option>`).join("")}</select></label>
+      <div class="two"><label class="fld"><span>Скільки штук</span><input class="inp" id="eQty" inputmode="numeric" value="${e.type==="sale"?(e.qty||0):1}"></label><label class="fld"><span>Годин роботи</span><input class="inp" id="eHrs" inputmode="decimal" value="${e.hours||""}" placeholder="0"></label></div>
+      <label class="fld"><span>Клієнт</span><input class="inp" id="eCli" value="${esc(e.client||"")}"></label></div>
+    <div data-for="buy"><label class="fld"><span>Продукт</span><input class="inp" id="eProd" list="prodList" value="${esc(e.product||"")}" placeholder="Наприклад: борошно"><datalist id="prodList">${PRODUCTS.map(([n])=>`<option value="${n}">`).join("")}</datalist></label>
+      <div class="two"><label class="fld"><span>Скільки</span><input class="inp" id="eQ" inputmode="decimal" value="${e.type==="buy"&&e.qty?(big?e.qty/1000:e.qty):""}" placeholder="0"></label><label class="fld"><span>Одиниці</span><select class="inp" id="eU">${["кг","г","л","мл","шт"].map(u=>`<option ${u===unitShow?"selected":""}>${u}</option>`).join("")}</select></label></div></div>
+    <div data-for="exp"><div class="fld"><span>Що саме</span></div>${seg(EXP_CATS.map(c=>[c,c]),cat,"data-ec")}</div>
+    <label class="fld"><span>Коментар</span><input class="inp" id="eNote" value="${esc(e.note||"")}"></label>
+    ${saveBar("Зберегти",true)}`;
+  openSheet("Запис",html,()=>{
+    const show=()=>document.querySelectorAll("[data-for]").forEach(el=>el.hidden=el.dataset.for!==type);
+    pick("data-ty",v=>{ type=v; show() }); pick("data-ec",v=>{ cat=v }); show();
+    $("shSave").onclick=()=>{
+      const amount=num($("eAmt").value); if(!(amount>0)) return alertIn("Вкажи суму.");
+      const rec={id:e.id,type,amount,date:$("eDate").value||e.date,note:$("eNote").value.trim(),ts:e.ts||Date.now()};
+      if(type==="sale"){ rec.kindId=$("eKind").value; rec.qty=rec.kindId?Math.max(1,Math.round(num($("eQty").value))||1):0; rec.hours=num($("eHrs").value); rec.client=$("eCli").value.trim(); if(e.phone) rec.phone=e.phone }
+      if(type==="buy"){ rec.product=$("eProd").value.trim(); const q=num($("eQ").value), u=$("eU").value; rec.qty=q>0?(u==="кг"||u==="л"?q*1000:q):0; rec.unit=q>0?(u==="кг"||u==="г"?"г":u==="л"||u==="мл"?"мл":"шт"):"" }
+      if(type==="exp") rec.cat=cat;
+      const i=D.entries.findIndex(x=>x.id===e.id); D.entries[i]=rec; save(); closeSheet(); render(); toast("Збережено");
+    };
+    $("shDel").onclick=async()=>{ if(!(await confirmBox("Видалити запис?",describe(e).t+" — "+fmtM(e.amount),"Видалити"))) return; const i=D.entries.findIndex(x=>x.id===e.id); const old=D.entries[i]; D.entries.splice(i,1); save(); closeSheet(); render(); toast("Запис видалено",()=>{ D.entries.splice(i,0,old); save(); render() }) };
+  });
+}
 function orderSheet(id){
-  const k0=D.kinds[0]||{};
-  const o=id?JSON.parse(JSON.stringify(byId(D.orders,id))):{id:null,clientId:"",kindId:k0.id||"",title:"",qty:1,date:isoD(new Date(Date.now()+864e5)),time:"",price:k0.price||"",prepaid:"",paid:false,ingCost:null,extraCost:null,hours:null,note:"",status:"new"};
-  const c=o.clientId?cli(o.clientId):null;
-  const html=`
-    <label class="fld"><span>Клієнт</span><input class="inp" id="oName" list="cliList" value="${esc(c?c.name:"")}" placeholder="Ім'я" autocomplete="off"><datalist id="cliList">${D.clients.map(c=>`<option value="${esc(c.name)}">`).join("")}</datalist></label>
-    <label class="fld"><span>Телефон <small>необов'язково</small></span><input class="inp" id="oPhone" type="tel" inputmode="tel" value="${esc(c?c.phone:"")}" placeholder="0XX XXX XX XX"></label>
-    <label class="fld"><span>Який коровай</span><select class="inp" id="oKind">${D.kinds.map(k=>`<option value="${k.id}" ${k.id===o.kindId?"selected":""}>${esc(k.name)}</option>`).join("")}<option value="" ${!o.kindId?"selected":""}>Інше</option></select></label>
-    <label class="fld" id="oTitleWrap" ${o.kindId?"hidden":""}><span>Назва</span><input class="inp" id="oTitle" value="${esc(o.title)}" placeholder="Наприклад: шишки, дивень"></label>
-    <div class="fld"><span>Кількість</span><div class="stepper"><button type="button" id="qM" aria-label="Менше">−</button><input class="inp" id="oQty" inputmode="numeric" value="${o.qty||1}" style="width:90px" aria-label="Кількість"><button type="button" id="qP" aria-label="Більше">+</button></div></div>
-    <div class="two"><label class="fld"><span>Дата видачі</span><input class="inp" id="oDate" type="date" value="${o.date}"></label><label class="fld"><span>Час <small>не обов.</small></span><input class="inp" id="oTime" type="time" value="${esc(o.time||"")}"></label></div>
-    <label class="fld"><span>Ціна, ₴ <small>за все замовлення</small></span><input class="inp" id="oPrice" inputmode="decimal" value="${o.price===""?"":o.price}" placeholder="0"></label>
-    <label class="fld"><span>Передоплата, ₴</span><input class="inp" id="oPre" inputmode="decimal" value="${o.prepaid||""}" placeholder="0"></label>
-    <div class="toggle"><button type="button" class="g" id="oPaid" aria-pressed="${!!o.paid}">${o.paid?"✓ Оплачено повністю":"Оплачено повністю"}</button></div>
-    <label class="fld"><span>Нотатки <small>напис, прикраси, побажання</small></span><textarea class="inp" id="oNote">${esc(o.note||"")}</textarea></label>
-    <div class="toggle"><button type="button" id="stNew" aria-pressed="${o.status!=="done"}">Прийнято</button><button type="button" class="g" id="stDone" aria-pressed="${o.status==="done"}">Видано</button></div>
-    <details class="summary" id="oCostBox" ${o.ingCost!=null&&id?"":""}><summary style="cursor:pointer;font-weight:600">Собівартість і час <span id="oCostShort" style="font-weight:400;color:var(--muted)"></span></summary>
-      <p class="hintline" style="margin:8px 0 12px">Підставляються з виду короваю. Можна змінити, якщо цього разу було інакше.</p>
-      <label class="fld"><span>Продукти, ₴</span><input class="inp" id="oIng" inputmode="decimal" value="${o.ingCost==null?"":o.ingCost}"></label>
-      <label class="fld"><span>Прикраси, коробка, ₴</span><input class="inp" id="oExtra" inputmode="decimal" value="${o.extraCost==null?"":o.extraCost}" placeholder="0"></label>
-      <label class="fld" style="margin-bottom:0"><span>Часу витрачено, год</span><input class="inp" id="oHours" inputmode="decimal" value="${o.hours==null?"":o.hours}" placeholder="наприклад 3,5"></label>
-    </details>
-    <div class="summary" id="oSum"></div>
-    ${saveBar(id?"Зберегти зміни":"Записати замовлення",id?'<button class="btn danger" id="oDel">Видалити</button>':"")}`;
+  const o=id?{...D.orders.find(x=>x.id===id)}:{id:null,kindId:(D.kinds[0]||{}).id||"",qty:1,date:isoD(new Date(Date.now()+864e5)),time:"",amount:"",prepay:"",client:"",phone:"",note:""};
+  const html=`<label class="fld"><span>Клієнт</span><input class="inp" id="oCli" value="${esc(o.client)}" placeholder="Ім'я"></label>
+    <label class="fld"><span>Телефон <small>необов'язково</small></span><input class="inp" id="oPh" type="tel" inputmode="tel" value="${esc(o.phone||"")}"></label>
+    <div class="two"><label class="fld"><span>Коровай</span><select class="inp" id="oKind">${D.kinds.map(k=>`<option value="${k.id}" ${k.id===o.kindId?"selected":""}>${esc(k.name)}</option>`).join("")}</select></label><label class="fld"><span>Скільки</span><input class="inp" id="oQty" inputmode="numeric" value="${o.qty||1}"></label></div>
+    <div class="two"><label class="fld"><span>Дата видачі</span><input class="inp" id="oDate" type="date" value="${o.date}"></label><label class="fld"><span>Час</span><input class="inp" id="oTime" type="time" value="${esc(o.time||"")}"></label></div>
+    <div class="two"><label class="fld"><span>Ціна, ₴</span><input class="inp" id="oAmt" inputmode="decimal" value="${o.amount||""}" placeholder="0"></label><label class="fld"><span>Передоплата, ₴</span><input class="inp" id="oPre" inputmode="decimal" value="${o.prepay||""}" placeholder="0"></label></div>
+    <label class="fld"><span>Побажання <small>напис, прикраси</small></span><textarea class="inp" id="oNote">${esc(o.note||"")}</textarea></label>
+    ${saveBar(id?"Зберегти":"Записати замовлення",!!id)}`;
   openSheet(id?"Замовлення":"Нове замовлення",html,()=>{
-    let paid=!!o.paid, status=o.status||"new";
-    const touched={ing:o.ingCost!=null,extra:o.extraCost!=null,hours:o.hours!=null,price:id!=null};
-    const fill=()=>{
-      const k=kind(val("oKind")), q=Math.max(1,Math.round(num(val("oQty")))||1);
-      $("oTitleWrap").hidden=!!k;
-      if(k){
-        if(!touched.ing) $("oIng").value=(k.cost||0)*q||"";
-        if(!touched.extra) $("oExtra").value=(k.extra||0)*q||"";
-        if(!touched.hours) $("oHours").value=(k.hours||0)*q||"";
-        if(!touched.price && k.price) $("oPrice").value=k.price*q;
-      }
-      const price=num(val("oPrice")), cost=num(val("oIng"))+num(val("oExtra")), profit=price-cost, hrs=num(val("oHours"));
-      $("oCostShort").textContent=` · ${fmtM(cost)}${hrs?" · "+fmtH(hrs):""}`;
-      $("oSum").innerHTML=`<div style="color:var(--muted)">Прибуток із замовлення (оцінка)</div><div class="big num ${profit<0?"neg":""}">${fmtM(profit)}</div>${hrs>0?`<div><b class="num">${fmtM(profit/hrs)}</b> за годину роботи</div>`:""}${num(val("oPre"))>0&&!paid?`<div style="margin-top:4px">Лишилось отримати: <b class="num">${fmtM(price-num(val("oPre")))}</b></div>`:""}${!k&&!cost?`<div style="margin-top:4px;color:var(--muted)">Вкажи собівартість у блоці вище.</div>`:""}`;
-    };
-    ["oIng","oExtra","oHours","oPrice"].forEach(f=>$(f).addEventListener("input",()=>{ touched[{oIng:"ing",oExtra:"extra",oHours:"hours",oPrice:"price"}[f]]=true; fill() }));
-    ["oPre","oQty"].forEach(f=>$(f).addEventListener("input",fill));
-    $("oKind").onchange=()=>{ touched.ing=touched.extra=touched.hours=false; if(!id) touched.price=false; dirty=true; fill(); if(!kind(val("oKind"))) $("oCostBox").open=true };
-    $("qM").onclick=()=>{ $("oQty").value=Math.max(1,(num(val("oQty"))||1)-1); dirty=true; fill() };
-    $("qP").onclick=()=>{ $("oQty").value=(num(val("oQty"))||1)+1; dirty=true; fill() };
-    $("oName").addEventListener("change",()=>{ const m=D.clients.find(c=>c.name.toLowerCase()===val("oName").trim().toLowerCase()); if(m&&m.phone&&!val("oPhone")) $("oPhone").value=m.phone });
-    $("oPaid").onclick=()=>{ paid=!paid; $("oPaid").setAttribute("aria-pressed",paid); $("oPaid").textContent=paid?"✓ Оплачено повністю":"Оплачено повністю"; dirty=true; fill() };
-    $("stNew").onclick=()=>{ status="new"; $("stNew").setAttribute("aria-pressed",true); $("stDone").setAttribute("aria-pressed",false); dirty=true };
-    $("stDone").onclick=()=>{ status="done"; $("stNew").setAttribute("aria-pressed",false); $("stDone").setAttribute("aria-pressed",true); dirty=true };
-    if(!D.kinds.length) $("oCostBox").open=true;
-    fill();
+    const fillPrice=()=>{ const k=D.kinds.find(x=>x.id===$("oKind").value); if(k&&k.price&&!num($("oAmt").value)) $("oAmt").value=k.price*Math.max(1,num($("oQty").value)||1) };
+    $("oKind").onchange=fillPrice; if(!id) fillPrice();
     $("shSave").onclick=()=>{
-      if(!val("oDate")) return alertIn("Вкажи дату видачі.");
-      if(!val("oKind")&&!val("oTitle").trim()) return alertIn("Вибери коровай або впиши назву.");
-      const name=val("oName").trim(), phone=val("oPhone").trim(); let cid="";
-      if(name){ let cl=D.clients.find(c=>c.name.toLowerCase()===name.toLowerCase()); if(!cl){ cl={id:newId(),name,phone,note:""}; D.clients.push(cl) } else if(phone) cl.phone=phone; cid=cl.id }
-      upsert(D.orders,{id:o.id||newId(),clientId:cid,kindId:val("oKind"),title:val("oKind")?"":val("oTitle").trim(),qty:Math.max(1,Math.round(num(val("oQty")))||1),date:val("oDate"),time:val("oTime"),price:num(val("oPrice")),prepaid:num(val("oPre")),paid,ingCost:num(val("oIng")),extraCost:num(val("oExtra")),hours:num(val("oHours")),note:val("oNote").trim(),status,createdAt:o.createdAt||Date.now(),updatedAt:Date.now()});
-      save(); closeSheet(); S.tab="orders"; render(); toast(id?"Зміни збережено":"Замовлення записано");
+      const amount=num($("oAmt").value); if(!(amount>0)) return alertIn("Вкажи ціну замовлення.");
+      if(!$("oDate").value) return alertIn("Вкажи дату видачі.");
+      const rec={id:o.id||newId(),client:$("oCli").value.trim(),phone:$("oPh").value.trim(),kindId:$("oKind").value,qty:Math.max(1,Math.round(num($("oQty").value))||1),date:$("oDate").value,time:$("oTime").value,amount,prepay:num($("oPre").value),note:$("oNote").value.trim(),ts:o.ts||Date.now()};
+      const i=D.orders.findIndex(x=>x.id===rec.id); if(i>=0) D.orders[i]=rec; else D.orders.push(rec);
+      save(); closeSheet(); S.tab="orders"; render(); toast(id?"Збережено":"Замовлення записано");
     };
-    if($("oDel")) $("oDel").onclick=()=>removeWithUndo(D.orders,o.id,"Видалити замовлення?",orderTitle(o)+" на "+dayLabel(o.date)+". Його не буде в підсумках.","Замовлення видалено");
+    if($("shDel")) $("shDel").onclick=async()=>{ if(!(await confirmBox("Видалити замовлення?","Якщо його вже видано — краще натисни «Видано ✓», щоб записався продаж.","Видалити"))) return; const i=D.orders.findIndex(x=>x.id===o.id), old=D.orders[i]; D.orders.splice(i,1); save(); closeSheet(); render(); toast("Замовлення видалено",()=>{ D.orders.splice(i,0,old); save(); render() }) };
   });
 }
-
-/* kind (no recipe stored) */
 function kindSheet(id){
-  const k=id?{...kind(id)}:{id:null,name:"",price:"",cost:"",extra:"",hours:""};
-  const html=`
-    <label class="fld"><span>Назва</span><input class="inp" id="kName" value="${esc(k.name)}" placeholder="Наприклад: весільний великий"></label>
-    <label class="fld"><span>Звичайна ціна, ₴</span><input class="inp" id="kPrice" inputmode="decimal" value="${k.price||""}" placeholder="0"></label>
-    <label class="fld"><span>Продукти на один коровай, ₴ <small>приблизно</small></span><input class="inp" id="kCost" inputmode="decimal" value="${k.cost||""}" placeholder="0"></label>
-    <div class="hintline"><button type="button" id="calcOpen">Порахувати з цін продуктів</button></div>
-    <div id="calc" hidden class="summary" style="background:var(--goldSoft)">
-      <b>Калькулятор</b><p class="hintline" style="margin:4px 0 10px">Кількості нікуди не зберігаються — після закриття вони зникнуть. Збережеться лише сума.</p>
-      <div id="calcRows"></div>
-      <button type="button" class="addline" id="calcAdd" style="margin-bottom:10px">+ Продукт</button>
-      <div style="display:flex;align-items:center;gap:10px;justify-content:space-between"><span>Разом: <b class="num" id="calcSum">0 ₴</b></span><button type="button" class="btn" id="calcUse" style="flex:0 0 auto;padding:11px 16px">Підставити</button></div>
-    </div>
-    <label class="fld"><span>Прикраси, коробка на один, ₴</span><input class="inp" id="kExtra" inputmode="decimal" value="${k.extra||""}" placeholder="0"></label>
-    <label class="fld"><span>Скільки часу займає, год</span><input class="inp" id="kHours" inputmode="decimal" value="${k.hours||""}" placeholder="наприклад 4"></label>
-    <div class="summary" id="kSum"></div>
-    ${saveBar(id?"Зберегти":"Додати",id?'<button class="btn danger" id="kDel">Видалити</button>':"")}`;
-  openSheet(id?"Вид короваю":"Новий вид короваю",html,()=>{
-    const sum=()=>{ const p=num(val("kPrice")), c=num(val("kCost"))+num(val("kExtra")), h=num(val("kHours")); $("kSum").innerHTML=`<div style="color:var(--muted)">Собівартість одного</div><div class="big num">${fmtM(c)}</div>${p?`<div>Прибуток при ціні ${fmtM(p)}: <b class="num">${fmtM(p-c)}</b>${h?` · <b class="num">${fmtM((p-c)/h)}</b>/год`:""}</div>`:""}` };
-    ["kPrice","kCost","kExtra","kHours"].forEach(f=>$(f).addEventListener("input",sum)); sum();
-    // private calculator — values live only in memory
-    let rows=[];
-    const opts=sel=>`<option value="">Продукт</option>`+D.products.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${p.id}" ${p.id===sel?"selected":""}>${esc(p.name)}${p.packPrice>0?"":" (немає ціни)"}</option>`).join("");
-    const draw=()=>{
-      $("calcRows").innerHTML=rows.map((r,i)=>{ const p=prod(r.p); const us=p?unitOpts(p.unit):["кг","г"]; if(!us.includes(r.u)) r.u=us[0]; const cost=p&&p.packPrice>0?perBig(p)*(p.unit==="шт"?r.q:toBase(r.q,r.u)/1000):0;
-        return `<div class="ingr" data-i="${i}" style="grid-template-columns:1fr 78px 64px 40px"><select class="inp" data-f="p">${opts(r.p)}</select><input class="inp" data-f="q" inputmode="decimal" value="${r.q||""}" placeholder="0" aria-label="Кількість"><select class="inp" data-f="u" aria-label="Одиниці" style="padding:8px 4px">${us.map(u=>`<option ${u===r.u?"selected":""}>${u}</option>`).join("")}</select><button type="button" class="x" data-f="x" aria-label="Прибрати" style="width:40px">×</button><div class="cost">${p?(p.packPrice>0?fmtM(cost):"спершу вкажи ціну в «Закупки → Ціни»"):""}</div></div>` }).join("");
-      let total=0; rows.forEach(r=>{ const p=prod(r.p); if(p&&p.packPrice>0) total+=perBig(p)*(p.unit==="шт"?r.q:toBase(r.q,r.u)/1000) }); $("calcSum").textContent=fmtM(total); $("calcSum").dataset.v=Math.round(total);
-      $("calcRows").querySelectorAll(".ingr").forEach(el=>{ const i=+el.dataset.i;
-        el.querySelector('[data-f="p"]').onchange=e=>{ rows[i].p=e.target.value; draw() };
-        el.querySelector('[data-f="q"]').oninput=e=>{ rows[i].q=num(e.target.value); const keep=e.target.selectionStart; draw(); const n=$("calcRows").querySelector(`[data-i="${i}"] [data-f="q"]`); n.focus(); try{ n.setSelectionRange(keep,keep) }catch(_){} };
-        el.querySelector('[data-f="u"]').onchange=e=>{ rows[i].u=e.target.value; draw() };
-        el.querySelector('[data-f="x"]').onclick=()=>{ rows.splice(i,1); draw() };
-      });
-    };
-    $("calcOpen").onclick=()=>{ $("calc").hidden=!$("calc").hidden; if(!rows.length){ rows=[{p:"",q:0,u:"кг"}]; draw() } };
-    $("calcAdd").onclick=()=>{ rows.push({p:"",q:0,u:"кг"}); draw() };
-    $("calcUse").onclick=()=>{ $("kCost").value=$("calcSum").dataset.v||0; rows=[]; draw(); $("calc").hidden=true; dirty=true; sum(); toast("Суму підставлено, кількості стерто") };
+  const k=id?{...D.kinds.find(x=>x.id===id)}:{id:null,name:"",price:"",kw:[]};
+  const html=`<label class="fld"><span>Назва</span><input class="inp" id="kName" value="${esc(k.name)}" placeholder="Наприклад: весільний великий"></label>
+    <label class="fld"><span>Звичайна ціна, ₴ <small>необов'язково</small></span><input class="inp" id="kPrice" inputmode="decimal" value="${k.price||""}" placeholder="0"></label>
+    <label class="fld"><span>Як ти його називаєш у записах <small>через кому</small></span><input class="inp" id="kKw" value="${esc((k.kw||[]).join(", "))}" placeholder="весільний, великий"></label>
+    <p class="hintline" style="margin-top:-6px">Наприклад, слово «весільний» — і запис «весільний Оксана 2000» потрапить сюди.</p>
+    ${saveBar(id?"Зберегти":"Додати",!!id&&D.kinds.length>1)}`;
+  openSheet(id?"Вид короваю":"Новий вид",html,()=>{
     $("shSave").onclick=()=>{
-      const name=val("kName").trim(); if(!name) return alertIn("Впиши назву.");
-      upsert(D.kinds,{id:k.id||newId(),name,price:num(val("kPrice")),cost:num(val("kCost")),extra:num(val("kExtra")),hours:num(val("kHours")),updatedAt:Date.now()});
-      save(); closeSheet(); render(); toast(id?"Збережено":"Вид короваю додано");
+      const name=$("kName").value.trim(); if(!name) return alertIn("Впиши назву.");
+      if(D.kinds.some(x=>x.id!==k.id&&x.name.toLowerCase()===name.toLowerCase())) return alertIn("Такий вид уже є.");
+      const kw=[...new Set($("kKw").value.split(/[,;]+/).map(x=>x.trim().toLowerCase()).filter(x=>x.length>=3))];
+      const rec={id:k.id||newId(),name,price:num($("kPrice").value),kw};
+      const i=D.kinds.findIndex(x=>x.id===rec.id);
+      if(i>=0) D.kinds[i]=rec; else { const g=D.kinds.findIndex(x=>(x.kw||[]).includes("коров")); D.kinds.splice(g>=0?g:D.kinds.length,0,rec) }
+      save(); closeSheet(); render(); toast(id?"Збережено":"Вид додано");
     };
-    if($("kDel")) $("kDel").onclick=()=>{ const used=D.orders.filter(o=>o.kindId===k.id); used.forEach(o=>{ if(!o.title) o.title=k.name }); removeWithUndo(D.kinds,k.id,"Видалити вид короваю?",used.length?`Є в ${used.length} замовленнях — вони збережуться з назвою «${k.name}».`:`«${k.name}» буде видалено.`,"Видалено") };
+    if($("shDel")) $("shDel").onclick=async()=>{ const n=D.entries.filter(e=>e.kindId===k.id).length+D.orders.filter(o=>o.kindId===k.id).length; if(!(await confirmBox("Видалити вид?",n?`Він є в ${n} записах — вони залишаться, але без назви короваю.`:`«${k.name}» буде видалено.`,"Видалити"))) return; D.kinds=D.kinds.filter(x=>x.id!==k.id); save(); closeSheet(); render(); toast("Видалено") };
   });
 }
 
-/* purchase */
-function purchaseSheet(id){
-  const p=id?{...byId(D.purchases,id)}:{id:null,date:today(),productId:"",name:"",qty:"",unit:"",amount:"",note:""};
-  const recent={}; D.purchases.forEach(x=>{ if(x.productId) recent[x.productId]=(recent[x.productId]||0)+1 });
-  const list=D.products.slice().sort((a,b)=>(recent[b.id]||0)-(recent[a.id]||0)||a.name.localeCompare(b.name));
-  const mode0=id?(p.productId?"prod":"check"):"prod";
-  const html=`
-    <div class="toggle"><button type="button" data-mode="prod" aria-pressed="${mode0==="prod"}">Окремий продукт</button><button type="button" data-mode="check" aria-pressed="${mode0==="check"}">Чек одним рядком</button></div>
-    <div id="mProd" ${mode0==="prod"?"":"hidden"}>
-      <div class="fld"><span>Що купила</span></div>
-      <div class="toggle" id="pList" style="flex-wrap:wrap">${list.map(x=>`<button type="button" data-p="${x.id}" aria-pressed="${x.id===p.productId}" style="flex:1 1 30%">${esc(x.name)}</button>`).join("")}<button type="button" id="pNew" style="flex:1 1 30%">+ Інший</button></div>
-      <div class="two"><label class="fld"><span>Скільки</span><input class="inp" id="bQty" inputmode="decimal" value="${p.qty?(p.unit==="кг"||p.unit==="л"?p.qty/1000:p.qty):""}" placeholder="0"></label><label class="fld"><span>Одиниці</span><select class="inp" id="bUnit"></select></label></div>
-    </div>
-    <div id="mCheck" ${mode0==="check"?"":"hidden"}><label class="fld"><span>Де / що</span><input class="inp" id="bName" value="${esc(p.name||"")}" placeholder="Наприклад: АТБ, ринок"></label></div>
-    <div class="two"><label class="fld"><span>Заплатила, ₴</span><input class="inp" id="bAmt" inputmode="decimal" value="${p.amount||""}" placeholder="0"></label><label class="fld"><span>Дата</span><input class="inp" id="bDate" type="date" value="${p.date}"></label></div>
-    <label class="fld"><span>Коментар <small>необов'язково</small></span><input class="inp" id="bNote" value="${esc(p.note||"")}"></label>
-    <div class="summary" id="bSum"></div>
-    ${saveBar(id?"Зберегти":"Записати закупку",id?'<button class="btn danger" id="bDel">Видалити</button>':"")}`;
-  openSheet(id?"Закупка":"Нова закупка",html,()=>{
-    let mode=mode0, pid=p.productId||"";
-    const units=()=>{ const pr=prod(pid); const us=pr?unitOpts(pr.unit):["кг","г"]; const cur=p.unit&&us.includes(p.unit)?p.unit:us[0]; $("bUnit").innerHTML=us.map(u=>`<option ${u===cur?"selected":""}>${u}</option>`).join("") };
-    const info=()=>{ const pr=prod(pid), q=num(val("bQty")), a=num(val("bAmt")); if(mode==="prod"&&pr&&q>0&&a>0){ const base=toBase(q,val("bUnit")); const per=a/base*(pr.unit==="шт"?1:1000); const old=pr.packPrice>0?perBig(pr):0; const ch=old?Math.round((per/old-1)*100):0; $("bSum").innerHTML=`<div style="color:var(--muted)">Виходить</div><div class="big num">${fmt(Math.round(per*100)/100)} ₴/${BIG[pr.unit]}</div>${old&&Math.abs(ch)>=1?`<div style="color:${ch>0?"var(--red)":"var(--green)"}">${ch>0?"Дорожче":"Дешевше"} на ${Math.abs(ch)}%, ніж минулого разу</div>`:""}`; $("bSum").hidden=false } else $("bSum").hidden=true };
-    units(); info();
-    $("sheet").querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ mode=b.dataset.mode; $("sheet").querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-pressed",x===b)); $("mProd").hidden=mode!=="prod"; $("mCheck").hidden=mode!=="check"; info() });
-    $("pList").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ pid=b.dataset.p; $("pList").querySelectorAll("[data-p]").forEach(x=>x.setAttribute("aria-pressed",x===b)); p.unit=""; units(); info(); dirty=true; $("bQty").focus() });
-    $("pNew").onclick=()=>productSheet(null,true);
-    ["bQty","bAmt"].forEach(f=>$(f).addEventListener("input",info)); $("bUnit").onchange=info;
-    $("shSave").onclick=()=>{
-      const amount=num(val("bAmt")); if(!(amount>0)) return alertIn("Вкажи, скільки заплатила.");
-      let rec={id:p.id||newId(),date:val("bDate")||today(),amount,note:val("bNote").trim(),ts:p.ts||Date.now()};
-      if(mode==="prod"){
-        const pr=prod(pid); if(!pr) return alertIn("Вибери продукт.");
-        const q=num(val("bQty")), u=val("bUnit");
-        rec={...rec,productId:pid,name:"",qty:q>0?toBase(q,u):0,unit:u};
-        if(q>0 && rec.date>=(pr.priceDate||"")){ pr.packSize=rec.qty; pr.packPrice=amount; pr.priceDate=rec.date }
-      } else { const name=val("bName").trim(); rec={...rec,productId:"",name:name||"Чек",qty:0,unit:""} }
-      upsert(D.purchases,rec); save(); S.month=monthOf(rec.date); closeSheet(); S.tab="buy"; S.buyTab="products"; render(); toast(id?"Збережено":"Закупку записано");
-    };
-    if($("bDel")) $("bDel").onclick=()=>removeWithUndo(D.purchases,p.id,"Видалити закупку?",fmtM(p.amount)+" від "+shortDate(p.date)+".","Закупку видалено");
-  });
-}
-
-/* product */
-function productSheet(id,fromPurchase){
-  const p=id?{...prod(id)}:{id:null,name:"",unit:"г",packSize:1000,packPrice:0};
-  const html=`
-    <label class="fld"><span>Назва</span><input class="inp" id="pName" value="${esc(p.name)}" placeholder="Наприклад: родзинки"></label>
-    <div class="fld"><span>Як рахуєш</span></div>
-    ${chips([["г","Вага (кг)"],["мл","Об'єм (л)"],["шт","Штуки"]],p.unit,"data-u")}
-    <div class="two"><label class="fld"><span>Ціна, ₴</span><input class="inp" id="pPrice" inputmode="decimal" value="${p.packPrice>0?Math.round(perBig(p)*100)/100:""}" placeholder="0"></label><div class="fld"><span>&nbsp;</span><div class="inp" id="pPer" style="display:flex;align-items:center;color:var(--muted)">за 1 ${BIG[p.unit]}</div></div></div>
-    <p class="hintline" style="margin-top:-4px">Зазвичай не треба вводити вручну — ціна оновлюється з кожної закупки.</p>
-    ${saveBar(id?"Зберегти":"Додати продукт",id?'<button class="btn danger" id="pDel">Видалити</button>':"")}`;
-  const prevSheet=fromPurchase?$("sheet").innerHTML:null;
-  openSheet(id?"Продукт":"Новий продукт",html,()=>{
-    let unit=p.unit;
-    $("sheet").querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>{ unit=b.dataset.u; $("sheet").querySelectorAll("[data-u]").forEach(x=>x.setAttribute("aria-pressed",x===b)); $("pPer").textContent="за 1 "+BIG[unit]; dirty=true });
-    $("shSave").onclick=()=>{
-      const name=val("pName").trim(); if(!name) return alertIn("Впиши назву.");
-      if(D.products.some(x=>x.id!==p.id&&x.name.toLowerCase()===name.toLowerCase())) return alertIn("Такий продукт уже є.");
-      const per=num(val("pPrice")); const size=unit==="шт"?1:1000;
-      const rec={id:p.id||newId(),name,unit,packSize:per>0?size:(p.packSize||size),packPrice:per>0?per:0,priceDate:per>0&&Math.abs(per-perBig(p))>0.001?today():(p.priceDate||"")};
-      upsert(D.products,rec); save();
-      if(fromPurchase){ closeSheet(); purchaseSheet(null); const b=$("pList").querySelector(`[data-p="${rec.id}"]`); b&&b.click(); return }
-      closeSheet(); render(); toast(id?"Збережено":"Продукт додано");
-    };
-    if($("pDel")) $("pDel").onclick=()=>{ const n=D.purchases.filter(x=>x.productId===p.id).length; if(n) return alertIn(`Продукт є в ${n} закупках — видалити не можна, щоб не зламати історію.`); removeWithUndo(D.products,p.id,"Видалити продукт?",`«${p.name}» зникне зі списку.`,"Продукт видалено") };
-  });
-}
-
-/* expense */
-function expenseSheet(id){
-  const e=id?{...byId(D.expenses,id)}:{id:null,date:today(),cat:EXP_CATS[0],amount:"",note:""};
-  const html=`<div class="fld"><span>Що саме</span></div>${chips(EXP_CATS.map(c=>[c,c]),e.cat,"data-c")}
-    <div class="two"><label class="fld"><span>Сума, ₴</span><input class="inp" id="eAmt" inputmode="decimal" value="${e.amount||""}" placeholder="0"></label><label class="fld"><span>Дата</span><input class="inp" id="eDate" type="date" value="${e.date}"></label></div>
-    <label class="fld"><span>Коментар <small>необов'язково</small></span><input class="inp" id="eNote" value="${esc(e.note||"")}"></label>
-    ${saveBar(id?"Зберегти":"Додати витрату",id?'<button class="btn danger" id="eDel">Видалити</button>':"")}`;
-  openSheet(id?"Витрата":"Нова витрата",html,()=>{
-    let cat=e.cat;
-    $("sheet").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{ cat=b.dataset.c; $("sheet").querySelectorAll("[data-c]").forEach(x=>x.setAttribute("aria-pressed",x===b)); dirty=true });
-    $("shSave").onclick=()=>{ const amount=num(val("eAmt")); if(!(amount>0)) return alertIn("Вкажи суму."); const rec={id:e.id||newId(),date:val("eDate")||today(),cat,amount,note:val("eNote").trim()}; upsert(D.expenses,rec); save(); S.month=monthOf(rec.date); closeSheet(); S.tab="buy"; S.buyTab="other"; render(); toast(id?"Збережено":"Витрату додано") };
-    if($("eDel")) $("eDel").onclick=()=>removeWithUndo(D.expenses,e.id,"Видалити витрату?",e.cat+" на "+fmtM(e.amount)+".","Витрату видалено");
-  });
-}
-
-/* client */
-function clientSheet(id){
-  const c=id?{...cli(id)}:{id:null,name:"",phone:"",note:""};
-  const os=id?D.orders.filter(o=>o.clientId===id).sort((a,b)=>b.date.localeCompare(a.date)):[];
-  const html=`<label class="fld"><span>Ім'я</span><input class="inp" id="cName" value="${esc(c.name)}"></label>
-    <label class="fld"><span>Телефон</span><input class="inp" id="cPhone" type="tel" inputmode="tel" value="${esc(c.phone||"")}"></label>
-    ${c.phone?`<p style="margin:-6px 0 14px"><a class="call" href="tel:${esc(c.phone.replace(/[^\d+]/g,""))}">Подзвонити</a></p>`:""}
-    <label class="fld"><span>Нотатки</span><textarea class="inp" id="cNote">${esc(c.note||"")}</textarea></label>
-    ${os.length?`<div class="fld"><span>Замовлення (${os.length}) на ${fmtM(os.reduce((s,o)=>s+(o.price||0),0))}</span></div><div class="list">${os.map(o=>`<div class="row"><div class="main"><div>${esc(orderTitle(o))}</div><small>${dayLabel(o.date)} · ${o.status==="done"?"видано":"прийнято"}</small></div><span class="val num">${fmtM(o.price)}</span></div>`).join("")}</div>`:""}
-    ${saveBar(id?"Зберегти":"Додати клієнта",id?'<button class="btn danger" id="cDel">Видалити</button>':"")}`;
-  openSheet(id?"Клієнт":"Новий клієнт",html,()=>{
-    $("shSave").onclick=()=>{ const name=val("cName").trim(); if(!name) return alertIn("Впиши ім'я."); if(D.clients.some(x=>x.id!==c.id&&x.name.toLowerCase()===name.toLowerCase())) return alertIn("Клієнт з таким ім'ям уже є. Додай прізвище."); upsert(D.clients,{id:c.id||newId(),name,phone:val("cPhone").trim(),note:val("cNote").trim()}); save(); closeSheet(); render(); toast("Збережено") };
-    if($("cDel")) $("cDel").onclick=async()=>{ if(!(await confirmBox("Видалити клієнта?",os.length?`Замовлення (${os.length}) залишаться без імені.`:`«${c.name}» буде видалено.`,"Видалити"))) return; const i=D.clients.findIndex(x=>x.id===c.id), old=D.clients[i], linked=os.map(o=>o.id); D.clients.splice(i,1); D.orders.forEach(o=>{ if(o.clientId===c.id) o.clientId="" }); save(); closeSheet(); render(); toast("Клієнта видалено",()=>{ D.clients.push(old); D.orders.forEach(o=>{ if(linked.includes(o.id)) o.clientId=old.id }); save(); render() }) };
-  });
-}
-
-/* ---------- backups ---------- */
-async function exportBackup(){ try{ await saveFile("korovai-kopiya-"+today()+".json",JSON.stringify({app:"korovai",version:APP_VERSION,savedAt:new Date().toISOString(),data:D})); const m={...metaObj,lastBackup:Date.now()}; meta(m); render(); toast("Копію збережено") }catch(e){ if(e&&(e.name==="AbortError"||e.code==="declined")) return; showAlert("error","Копію не збережено",String(e&&e.message||e)) } }
-const csvOf=rows=>"\ufeff"+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");
-async function exportOrders(){ const rows=[["Дата видачі","Клієнт","Телефон","Коровай","Кількість","Ціна","Передоплата","Оплачено","Продукти (оцінка)","Прикраси","Прибуток (оцінка)","Години","Статус","Нотатки"]]; D.orders.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(o=>{ const c=cli(o.clientId)||{}; rows.push([o.date,c.name||"",c.phone||"",orderTitle(o),o.qty||1,o.price||0,o.prepaid||0,o.paid?"так":"ні",o.ingCost||0,o.extraCost||0,Math.round(orderProfit(o)),o.hours||0,o.status==="done"?"видано":"прийнято",o.note||""]) }); try{ await saveFile("korovai-zamovlennya-"+today()+".csv",csvOf(rows)); toast("Таблицю збережено") }catch(e){} }
-async function exportBuys(){ const rows=[["Дата","Тип","Що","Кількість","Сума","Коментар"]]; D.purchases.forEach(p=>{ const pr=prod(p.productId); rows.push([p.date,"Продукти",pr?pr.name:(p.name||"Чек"),p.qty?qtyLabel(p.qty,pr?pr.unit:"шт"):"",p.amount,p.note||""]) }); D.expenses.forEach(e=>rows.push([e.date,"Інше",e.cat,"",e.amount,e.note||""])); rows.splice(1,rows.length,...rows.slice(1).sort((a,b)=>a[0].localeCompare(b[0]))); try{ await saveFile("korovai-zakupky-"+today()+".csv",csvOf(rows)); toast("Таблицю збережено") }catch(e){} }
-async function importBackup(file){
+/* ---------- backup ---------- */
+function backup(){ download("korovai-kopiya-"+today()+".json",JSON.stringify({app:"korovai",version:APP_VERSION,savedAt:new Date().toISOString(),data:D}),"application/json"); const m=meta(); m.lastBackup=Date.now(); meta(m); render(); toast("Копію збережено в «Завантаження»") }
+function csv(){ const rows=[["Дата","Тип","Що","Клієнт","Кількість","Сума","Години","Коментар"]]; D.entries.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{ const x=describe(e); rows.push([e.date,{sale:"Продаж",buy:"Закупка",exp:"Витрата"}[e.type],x.t,e.client||"",e.type==="buy"?qtyText(e.qty,e.unit):(e.qty||""),e.type==="sale"?e.amount:-e.amount,e.hours||"",e.note||""]) }); download("korovai-"+today()+".csv","\ufeff"+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n"),"text/csv"); toast("Таблицю збережено в «Завантаження»") }
+async function restore(file){
   try{ const text=file.text?await file.text():await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsText(file) });
-    const j=JSON.parse(text), d=j&&j.data; if(!d||j.app!=="korovai") throw new Error("це не файл копії «Короваїв»");
-    if(!(await confirmBox("Відновити з копії?",`Копія від ${j.savedAt?new Date(j.savedAt).toLocaleDateString("uk-UA"):"?"}: замовлень ${(d.orders||[]).length}. Поточні дані буде замінено.`,"Відновити"))) return;
-    const prev=JSON.stringify(D); D=d; normalize(); if(Array.isArray(d.recipes)&&d.recipes.length) migrate(d.recipes); delete D.recipes; save(); render(); toast("Дані відновлено",()=>{ D=JSON.parse(prev); save(); render() });
+    const j=JSON.parse(text); let d=j&&j.data; if(!d||j.app!=="korovai") throw new Error("це не копія «Короваїв»");
+    if(!Array.isArray(d.entries)){ const nd=blank(); migrate(d,nd); d=nd }
+    if(!(await confirmBox("Відновити з копії?","Поточні дані буде замінено.","Відновити"))) return;
+    const prev=JSON.stringify(D); D=d; ["kinds","entries","orders"].forEach(k=>{ if(!Array.isArray(D[k])) D[k]=[] }); save(); render(); toast("Дані відновлено",()=>{ D=JSON.parse(prev); save(); render() });
   }catch(e){ showAlert("error","Не вдалося відновити",String(e&&e.message||e)) }
 }
 
 /* ---------- start ---------- */
-document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.nav; S.alert=null; render(); window.scrollTo({top:0}) });
-$("fab").onclick=()=>{ if(S.tab==="buy") return S.buyTab==="other"?expenseSheet(null):purchaseSheet(null); orderSheet(null) };
 window.addEventListener("error",e=>{ try{ showAlert("error","Помилка в застосунку",(e.message||"невідома помилка")+". Зроби скріншот і надішли Андрію.") }catch(_){} });
-$("app").innerHTML='<div class="empty">Завантажую…</div>';
-(async()=>{ await load(); try{ DL=window.claude&&window.claude.use?await window.claude.use("downloads"):null }catch(e){} render() })();
+load(); render();
 try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist() }catch(e){}
-if("serviceWorker" in navigator && location.protocol==="https:" && !(window.claude&&window.claude.use)){
+if("serviceWorker" in navigator && location.protocol==="https:"){
   navigator.serviceWorker.register("sw.js").then(reg=>{
     const offer=w=>{ S.update=w; render() };
     if(reg.waiting&&navigator.serviceWorker.controller) offer(reg.waiting);
